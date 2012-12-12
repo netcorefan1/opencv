@@ -277,7 +277,7 @@ int searchObjectThreshold(const CvLSVMFeaturePyramid *H,
 
 
     // Matching
-#ifdef HAVE_TBB
+#if 0
     if (numThreads <= 0)
     {
         opResult = LATENT_SVM_TBB_NUMTHREADS_NOT_CORRECT;

@@ -513,6 +513,7 @@ namespace colormap
             colormap == COLORMAP_HOT ? (colormap::ColorMap*)(new colormap::Hot) :
             colormap == COLORMAP_HSV ? (colormap::ColorMap*)(new colormap::HSV) :
             colormap == COLORMAP_JET ? (colormap::ColorMap*)(new colormap::Jet) :
+            colormap == COLORMAP_RAINBOW ? (colormap::ColorMap*)(new colormap::Rainbow) :
             colormap == COLORMAP_OCEAN ? (colormap::ColorMap*)(new colormap::Ocean) :
             colormap == COLORMAP_PINK ? (colormap::ColorMap*)(new colormap::Pink) :
             colormap == COLORMAP_RAINBOW ? (colormap::ColorMap*)(new colormap::Rainbow) :

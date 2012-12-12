@@ -449,6 +449,8 @@ public:
 
     bool isOpened() const;
 
+    xn::Context* getOpenNIContext() { return &context; }
+
 protected:
     struct OutputMap
     {
@@ -1403,4 +1405,10 @@ CvCapture* cvCreateFileCapture_OpenNI( const char* filename )
     return 0;
 }
 
+// Return a pointer to the xn::Context of OpenNI from the CvCapture)
+void* cvGetOpenniCaptureContext( CvCapture* capture)
+{
+   CvCapture_OpenNI* openniCapture = (CvCapture_OpenNI*) capture;
+   return openniCapture->getOpenNIContext();
+}
 #endif

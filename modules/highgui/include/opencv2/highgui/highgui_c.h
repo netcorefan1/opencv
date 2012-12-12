@@ -541,6 +541,9 @@ CVAPI(int)    cvSetCaptureProperty( CvCapture* capture, int property_id, double 
 // Return the type of the capturer (eg, CV_CAP_V4W, CV_CAP_UNICAP), which is unknown if created with CV_CAP_ANY
 CVAPI(int)    cvGetCaptureDomain( CvCapture* capture);
 
+// Return a pointer to the xn::Context of OpenNI from the CvCapture)
+CVAPI(void*) cvGetOpenniCaptureContext( CvCapture* capture);
+
 /* "black box" video file writer structure */
 typedef struct CvVideoWriter CvVideoWriter;
 

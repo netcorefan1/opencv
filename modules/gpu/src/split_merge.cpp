@@ -95,9 +95,9 @@ namespace
 
         CV_Assert(single_channel_only);
         CV_Assert(total_channels <= 4);
-
+        dst.create(size, CV_MAKETYPE(depth, total_channels));
         if (total_channels == 1)
-            src[0].copyTo(dst);
+            cudaSafeCall( cudaMemcpy2DAsync(dst.data, dst.step, src[0].data, src[0].step, src[0].cols * src[0].elemSize(), src[0].rows, cudaMemcpyDeviceToDevice, stream) );
         else
         {
             dst.create(size, CV_MAKETYPE(depth, total_channels));
@@ -128,7 +128,8 @@ namespace
 
         if (num_channels == 1)
         {
-            src.copyTo(dst[0]);
+            dst[0].create(src.size(), depth);
+			cudaSafeCall( cudaMemcpy2DAsync(dst[0].data, dst[0].step, src.data, src.step, src.cols * src.elemSize(), src.rows, cudaMemcpyDeviceToDevice, stream) );
             return;
         }
 

@@ -554,9 +554,9 @@ Line2( Mat& img, Point pt1, Point pt2, const void* color )
     int ax, ay;
     int i, j, x, y;
     int x_step, y_step;
-    int cb = ((uchar*)color)[0];
-    int cg = ((uchar*)color)[1];
-    int cr = ((uchar*)color)[2];
+    uchar cb = ((uchar*)color)[0];
+    uchar cg = ((uchar*)color)[1];
+    uchar cr = ((uchar*)color)[2];
     int pix_size = (int)img.elemSize();
     uchar *ptr = img.data, *tptr;
     size_t step = img.step;
@@ -617,9 +617,9 @@ Line2( Mat& img, Point pt1, Point pt2, const void* color )
             0 <= y && y < size.height ) \
         {                               \
             tptr = ptr + y*step + x*3;  \
-            tptr[0] = (uchar)cb;        \
-            tptr[1] = (uchar)cg;        \
-            tptr[2] = (uchar)cr;        \
+            tptr[0] = cb;        \
+            tptr[1] = cg;        \
+            tptr[2] = cr;        \
         }
 
         ICV_PUT_POINT((pt2.x + (XY_ONE >> 1)) >> XY_SHIFT,
@@ -660,7 +660,7 @@ Line2( Mat& img, Point pt1, Point pt2, const void* color )
             0 <= y && y < size.height ) \
         {                           \
             tptr = ptr + y*step + x;\
-            tptr[0] = (uchar)cb;    \
+            tptr[0] = cb;    \
         }
 
         ICV_PUT_POINT((pt2.x + (XY_ONE >> 1)) >> XY_SHIFT,
