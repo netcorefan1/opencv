@@ -879,7 +879,6 @@ void CvBoostTree::read( CvFileStorage* fs, CvFileNode* fnode, CvBoost* _ensemble
     ensemble = _ensemble;
 }
 
-
 void CvBoostTree::read( CvFileStorage*, CvFileNode* )
 {
     assert(0);
@@ -1116,6 +1115,12 @@ bool CvBoost::train( CvMLData* _data,
     return result;
 }
 
+void CvBoost::initialize_weights(double (&p)[2])
+{
+    p[0] = 1.;
+    p[1] = 1.;
+}
+
 void
 CvBoost::update_weights( CvBoostTree* tree )
 {
@@ -1130,13 +1135,13 @@ CvBoost::update_weights( CvBoostTree* tree )
     int *sample_idx_buf;
     const int* sample_idx = 0;
     cv::AutoBuffer<uchar> inn_buf;
-    size_t _buf_size = (params.boost_type == LOGIT) || (params.boost_type == GENTLE) ? data->sample_count*sizeof(int) : 0;
+    size_t _buf_size = (params.boost_type == LOGIT) || (params.boost_type == GENTLE) ? (size_t)(data->sample_count)*sizeof(int) : 0;
     if( !tree )
         _buf_size += n*sizeof(int);
     else
     {
         if( have_subsample )
-            _buf_size += data->buf->cols*(sizeof(float)+sizeof(uchar));
+            _buf_size += data->get_length_subbuf()*(sizeof(float)+sizeof(uchar));
     }
     inn_buf.allocate(_buf_size);
     uchar* cur_buf_pos = (uchar*)inn_buf;
@@ -1151,6 +1156,7 @@ CvBoost::update_weights( CvBoostTree* tree )
         sample_idx = data->get_sample_indices( data->data_root, sample_idx_buf );
     }
     CvMat* dtree_data_buf = data->buf;
+    size_t length_buf_row = data->get_length_subbuf();
     if( !tree ) // before training the first tree, initialize weights and other parameters
     {
         int* class_labels_buf = (int*)cur_buf_pos;
@@ -1159,8 +1165,9 @@ CvBoost::update_weights( CvBoostTree* tree )
         // in case of logitboost and gentle adaboost each weak tree is a regression tree,
         // so we need to convert class labels to floating-point values
 
-        double w0 = 1./n;
-        double p[2] = { 1, 1 };
+        double w0 = 1./ n;
+        double p[2] = { 1., 1. };
+        initialize_weights(p);
 
         cvReleaseMat( &orig_response );
         cvReleaseMat( &sum_response );
@@ -1189,7 +1196,7 @@ CvBoost::update_weights( CvBoostTree* tree )
 
         if (data->is_buf_16u)
         {
-            unsigned short* labels = (unsigned short*)(dtree_data_buf->data.s + data->data_root->buf_idx*dtree_data_buf->cols +
+            unsigned short* labels = (unsigned short*)(dtree_data_buf->data.s + data->data_root->buf_idx*length_buf_row +
                 data->data_root->offset + (data->work_var_count-1)*data->sample_count);
             for( i = 0; i < n; i++ )
             {
@@ -1207,7 +1214,7 @@ CvBoost::update_weights( CvBoostTree* tree )
         }
         else
         {
-            int* labels = dtree_data_buf->data.i + data->data_root->buf_idx*dtree_data_buf->cols +
+            int* labels = dtree_data_buf->data.i + data->data_root->buf_idx*length_buf_row +
                 data->data_root->offset + (data->work_var_count-1)*data->sample_count;
 
             for( i = 0; i < n; i++ )
@@ -1254,9 +1261,10 @@ CvBoost::update_weights( CvBoostTree* tree )
         if( have_subsample )
         {
             float* values = (float*)cur_buf_pos;
-            cur_buf_pos = (uchar*)(values + data->buf->cols);
+            cur_buf_pos = (uchar*)(values + data->get_length_subbuf());
             uchar* missing = cur_buf_pos;
-            cur_buf_pos = missing + data->buf->step;
+            cur_buf_pos = missing + data->get_length_subbuf() * (size_t)CV_ELEM_SIZE(data->buf->type);
+
             CvMat _sample, _mask;
 
             // invert the subsample mask

@@ -45,20 +45,20 @@
 #include <stdio.h>
 #include "opencv2/core/internal.hpp"
 
-#if CV_SSE2 || CV_SSE3
-#   if !CV_SSE4_1 && !CV_SSE4_2
+#if CV_SSE2
+#   if 1 /*!CV_SSE4_1 && !CV_SSE4_2*/
 #       define _mm_blendv_pd(a, b, m) _mm_xor_pd(a, _mm_and_pd(_mm_xor_pd(b, a), m))
 #       define _mm_blendv_ps(a, b, m) _mm_xor_ps(a, _mm_and_ps(_mm_xor_ps(b, a), m))
 #   endif
 #endif
 
-#if CV_AVX
+#if 0 /*CV_AVX*/
 #  define CV_HAAR_USE_AVX 1
 #  if defined _MSC_VER
 #    pragma warning( disable : 4752 )
 #  endif
 #else
-#  if CV_SSE2 || CV_SSE3
+#  if CV_SSE2
 #    define CV_HAAR_USE_SSE 1
 #  endif
 #endif
@@ -1935,20 +1935,14 @@ icvLoadCascadeCART( const char** input_cascade, int n, CvSize orig_window_size )
 CV_IMPL CvHaarClassifierCascade*
 cvLoadHaarClassifierCascade( const char* directory, CvSize orig_window_size )
 {
-    const char** input_cascade = 0;
-    CvHaarClassifierCascade *cascade = 0;
-
-    int i, n;
-    const char* slash;
-    char name[_MAX_PATH];
-    int size = 0;
-    char* ptr = 0;
-
     if( !directory )
         CV_Error( CV_StsNullPtr, "Null path is passed" );
 
-    n = (int)strlen(directory)-1;
-    slash = directory[n] == '\\' || directory[n] == '/' ? "" : "/";
+    char name[_MAX_PATH];
+
+    int n = (int)strlen(directory)-1;
+    const char* slash = directory[n] == '\\' || directory[n] == '/' ? "" : "/";
+    int size = 0;
 
     /* try to read the classifier from directory */
     for( n = 0; ; n++ )
@@ -1969,10 +1963,14 @@ cvLoadHaarClassifierCascade( const char* directory, CvSize orig_window_size )
         CV_Error( CV_StsBadArg, "Invalid path" );
 
     size += (n+1)*sizeof(char*);
-    input_cascade = (const char**)cvAlloc( size );
-    ptr = (char*)(input_cascade + n + 1);
+    const char** input_cascade = (const char**)cvAlloc( size );
+    
+    if( !input_cascade )
+      CV_Error( CV_StsNoMem, "Could not allocate memory for input_cascade" );
+      
+    char* ptr = (char*)(input_cascade + n + 1);
 
-    for( i = 0; i < n; i++ )
+    for( int i = 0; i < n; i++ )
     {
         sprintf( name, "%s/%d/AdaBoostCARTHaarClassifier.txt", directory, i );
         FILE* f = fopen( name, "rb" );
@@ -1990,7 +1988,8 @@ cvLoadHaarClassifierCascade( const char* directory, CvSize orig_window_size )
     }
 
     input_cascade[n] = 0;
-    cascade = icvLoadCascadeCART( input_cascade, n, orig_window_size );
+    
+    CvHaarClassifierCascade* cascade = icvLoadCascadeCART( input_cascade, n, orig_window_size );
 
     if( input_cascade )
         cvFree( &input_cascade );
