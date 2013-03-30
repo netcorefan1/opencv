@@ -3,11 +3,11 @@ if(ANDROID OR IOS)
 endif()
 
 set(the_description "GPU-accelerated Computer Vision")
-ocv_add_module(gpu opencv_imgproc opencv_calib3d opencv_objdetect opencv_video opencv_nonfree opencv_photo opencv_legacy)
+ocv_add_module(gpu opencv_imgproc opencv_calib3d opencv_objdetect opencv_video opencv_photo opencv_legacy)
 
 ocv_module_include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src/cuda")
 
-file(GLOB lib_hdrs               "include/opencv2/${name}/*.hpp"               "include/opencv2/${name}/*.h")
+file(GLOB lib_hdrs               "include/opencv2/*.hpp"                       "include/opencv2/${name}/*.hpp"               "include/opencv2/${name}/*.h")
 file(GLOB lib_device_hdrs        "include/opencv2/${name}/device/*.hpp"        "include/opencv2/${name}/device/*.h")
 file(GLOB lib_device_hdrs_detail "include/opencv2/${name}/device/detail/*.hpp" "include/opencv2/${name}/device/detail/*.h")
 file(GLOB lib_int_hdrs           "src/*.hpp"      "src/*.h")
@@ -28,7 +28,7 @@ if(HAVE_CUDA)
 
   source_group("Src\\NVidia" FILES ${ncv_files})
   ocv_include_directories("src/nvidia" "src/nvidia/core" "src/nvidia/NPP_staging" ${CUDA_INCLUDE_DIRS})
-  ocv_warnings_disable(CMAKE_CXX_FLAGS -Wundef -Wmissing-declarations /wd4211 /wd4201 /wd4100 /wd4505 /wd4408)
+  ocv_warnings_disable(CMAKE_CXX_FLAGS -Wundef -Wmissing-declarations -Wshadow -Wunused-parameter /wd4211 /wd4201 /wd4100 /wd4505 /wd4408)
   string(REPLACE "-Wsign-promo" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   #set (CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-Xcompiler;/EHsc-;")
 

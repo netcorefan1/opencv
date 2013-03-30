@@ -1,6 +1,6 @@
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
-// IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
+//  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
 //
 //  By downloading, copying, installing or using the software you agree to this license.
 //  If you do not agree to this license, do not download, install,
@@ -10,7 +10,8 @@
 //                           License Agreement
 //                For Open Source Computer Vision Library
 //
-// Copyright (C) 2009-2010, NVIDIA Corporation, all rights reserved.
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
 // Third party copyrights are property of their respective owners.
 //
 // Redistribution and use in source and binary forms, with or without modification,
@@ -2099,7 +2100,7 @@ NCVStatus ncvGrowDetectionsVector_host(NCVVector<Ncv32u> &pixelMask,
 }
 
 
-NCVStatus loadFromXML(const std::string &filename,
+NCVStatus loadFromXML(const cv::String &filename,
                       HaarClassifierCascadeDescriptor &haar,
                       std::vector<HaarStage64> &haarStages,
                       std::vector<HaarClassifierNode128> &haarClassifierNodes,
@@ -2110,7 +2111,7 @@ NCVStatus loadFromXML(const std::string &filename,
 #define NVBIN_HAAR_VERSION          0x1
 
 
-static NCVStatus loadFromNVBIN(const std::string &filename,
+static NCVStatus loadFromNVBIN(const cv::String &filename,
                                HaarClassifierCascadeDescriptor &haar,
                                std::vector<HaarStage64> &haarStages,
                                std::vector<HaarClassifierNode128> &haarClassifierNodes,
@@ -2174,14 +2175,14 @@ static NCVStatus loadFromNVBIN(const std::string &filename,
 }
 
 
-NCVStatus ncvHaarGetClassifierSize(const std::string &filename, Ncv32u &numStages,
+NCVStatus ncvHaarGetClassifierSize(const cv::String &filename, Ncv32u &numStages,
                                    Ncv32u &numNodes, Ncv32u &numFeatures)
 {
     size_t readCount;
     NCVStatus ncvStat;
 
-    std::string fext = filename.substr(filename.find_last_of(".") + 1);
-    std::transform(fext.begin(), fext.end(), fext.begin(), ::tolower);
+    cv::String fext = filename.substr(filename.find_last_of(".") + 1);
+    fext = fext.toLowerCase();
 
     if (fext == "nvbin")
     {
@@ -2226,7 +2227,7 @@ NCVStatus ncvHaarGetClassifierSize(const std::string &filename, Ncv32u &numStage
 }
 
 
-NCVStatus ncvHaarLoadFromFile_host(const std::string &filename,
+NCVStatus ncvHaarLoadFromFile_host(const cv::String &filename,
                                    HaarClassifierCascadeDescriptor &haar,
                                    NCVVector<HaarStage64> &h_HaarStages,
                                    NCVVector<HaarClassifierNode128> &h_HaarNodes,
@@ -2238,8 +2239,8 @@ NCVStatus ncvHaarLoadFromFile_host(const std::string &filename,
 
     NCVStatus ncvStat;
 
-    std::string fext = filename.substr(filename.find_last_of(".") + 1);
-    std::transform(fext.begin(), fext.end(), fext.begin(), ::tolower);
+    cv::String fext = filename.substr(filename.find_last_of(".") + 1);
+    fext = fext.toLowerCase();
 
     std::vector<HaarStage64> haarStages;
     std::vector<HaarClassifierNode128> haarNodes;
@@ -2272,7 +2273,7 @@ NCVStatus ncvHaarLoadFromFile_host(const std::string &filename,
 }
 
 
-NCVStatus ncvHaarStoreNVBIN_host(const std::string &filename,
+NCVStatus ncvHaarStoreNVBIN_host(const cv::String &filename,
                                  HaarClassifierCascadeDescriptor haar,
                                  NCVVector<HaarStage64> &h_HaarStages,
                                  NCVVector<HaarClassifierNode128> &h_HaarNodes,

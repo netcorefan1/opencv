@@ -51,51 +51,48 @@
 
 #ifdef __cplusplus
 
-/////// exchange-add operation for atomic operations on reference counters ///////
-#if defined __INTEL_COMPILER && !(defined WIN32 || defined _WIN32)   // atomic increment on the linux version of the Intel(tm) compiler
-  #define CV_XADD(addr,delta) _InterlockedExchangeAdd(const_cast<void*>(reinterpret_cast<volatile void*>(addr)), delta)
-#elif defined __GNUC__
-
-  #if defined __clang__ && __clang_major__ >= 3 && !defined __ANDROID__
-    #ifdef __ATOMIC_SEQ_CST
-        #define CV_XADD(addr, delta) __c11_atomic_fetch_add((_Atomic(int)*)(addr), (delta), __ATOMIC_SEQ_CST)
-    #else
-        #define CV_XADD(addr, delta) __atomic_fetch_add((_Atomic(int)*)(addr), (delta), 5)
-    #endif
-  #elif __GNUC__*10 + __GNUC_MINOR__ >= 42
-
-    #if !(defined WIN32 || defined _WIN32) && (defined __i486__ || defined __i586__ || \
-        defined __i686__ || defined __MMX__ || defined __SSE__  || defined __ppc__) || \
-        (defined __GNUC__ && defined _STLPORT_MAJOR)
-      #define CV_XADD __sync_fetch_and_add
-    #else
-      #include <ext/atomicity.h>
-      #define CV_XADD __gnu_cxx::__exchange_and_add
-    #endif
-
-  #else
-    #include <bits/atomicity.h>
-    #if __GNUC__*10 + __GNUC_MINOR__ >= 34
-      #define CV_XADD __gnu_cxx::__exchange_and_add
-    #else
-      #define CV_XADD __exchange_and_add
-    #endif
-  #endif
-
-#elif defined WIN32 || defined _WIN32 || defined WINCE
-  namespace cv { CV_EXPORTS int _interlockedExchangeAdd(int* addr, int delta); }
-  #define CV_XADD cv::_interlockedExchangeAdd
-
-#else
-  static inline int CV_XADD(int* addr, int delta)
-  { int tmp = *addr; *addr += delta; return tmp; }
-#endif
-
 #include <limits>
 
 #ifdef _MSC_VER
 # pragma warning(push)
 # pragma warning(disable:4127) //conditional expression is constant
+#endif
+
+//////////////// static assert /////////////////
+
+#define CVAUX_CONCAT_EXP(a, b) a##b
+#define CVAUX_CONCAT(a, b) CVAUX_CONCAT_EXP(a,b)
+
+#ifdef __cplusplus
+#  if defined(__clang__)
+#    ifndef __has_extension
+#      define __has_extension __has_feature /* compatibility, for older versions of clang */
+#    endif
+#    if __has_extension(cxx_static_assert)
+#      define CV_StaticAssert(condition, reason)    static_assert((condition), reason " " #condition)
+#    endif
+#  elif defined(__GNUC__)
+#    if (defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L)
+#      define CV_StaticAssert(condition, reason)    static_assert((condition), reason " " #condition)
+#    endif
+#  elif defined(_MSC_VER)
+#    if _MSC_VER >= 1600 /* MSVC 10 */
+#      define CV_StaticAssert(condition, reason)    static_assert((condition), reason " " #condition)
+#    endif
+#  endif
+#  ifndef CV_StaticAssert
+#    if defined(__GNUC__) && (__GNUC__ > 3) && (__GNUC_MINOR__ > 2)
+#      define CV_StaticAssert(condition, reason) ({ extern int __attribute__((error("CV_StaticAssert: " reason " " #condition))) CV_StaticAssert(); ((condition) ? 0 : CV_StaticAssert()); })
+#    else
+       namespace cv {
+         template <bool x> struct CV_StaticAssert_failed;
+         template <> struct CV_StaticAssert_failed<true> { enum { val = 1 }; };
+         template<int x> struct CV_StaticAssert_test{};
+       }
+#      define CV_StaticAssert(condition, reason)\
+         typedef cv::CV_StaticAssert_test< sizeof(cv::CV_StaticAssert_failed< static_cast<bool>(condition) >) > CVAUX_CONCAT(CV_StaticAssert_failed_at_, __LINE__)
+#    endif
+#  endif
 #endif
 
 namespace cv
@@ -204,28 +201,28 @@ template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0)
 
 template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1)
 {
-    assert(channels >= 2);
+    CV_StaticAssert(channels >= 2, "Matx should have at least 2 elaments.");
     val[0] = v0; val[1] = v1;
     for(int i = 2; i < channels; i++) val[i] = _Tp(0);
 }
 
 template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1, _Tp v2)
 {
-    assert(channels >= 3);
+    CV_StaticAssert(channels >= 3, "Matx should have at least 3 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2;
     for(int i = 3; i < channels; i++) val[i] = _Tp(0);
 }
 
 template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1, _Tp v2, _Tp v3)
 {
-    assert(channels >= 4);
+    CV_StaticAssert(channels >= 4, "Matx should have at least 4 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2; val[3] = v3;
     for(int i = 4; i < channels; i++) val[i] = _Tp(0);
 }
 
 template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1, _Tp v2, _Tp v3, _Tp v4)
 {
-    assert(channels >= 5);
+    CV_StaticAssert(channels >= 5, "Matx should have at least 5 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2; val[3] = v3; val[4] = v4;
     for(int i = 5; i < channels; i++) val[i] = _Tp(0);
 }
@@ -233,7 +230,7 @@ template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1
 template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1, _Tp v2, _Tp v3,
                                                         _Tp v4, _Tp v5)
 {
-    assert(channels >= 6);
+    CV_StaticAssert(channels >= 6, "Matx should have at least 6 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2; val[3] = v3;
     val[4] = v4; val[5] = v5;
     for(int i = 6; i < channels; i++) val[i] = _Tp(0);
@@ -242,7 +239,7 @@ template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1
 template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1, _Tp v2, _Tp v3,
                                                         _Tp v4, _Tp v5, _Tp v6)
 {
-    assert(channels >= 7);
+    CV_StaticAssert(channels >= 7, "Matx should have at least 7 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2; val[3] = v3;
     val[4] = v4; val[5] = v5; val[6] = v6;
     for(int i = 7; i < channels; i++) val[i] = _Tp(0);
@@ -251,7 +248,7 @@ template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1
 template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1, _Tp v2, _Tp v3,
                                                         _Tp v4, _Tp v5, _Tp v6, _Tp v7)
 {
-    assert(channels >= 8);
+    CV_StaticAssert(channels >= 8, "Matx should have at least 8 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2; val[3] = v3;
     val[4] = v4; val[5] = v5; val[6] = v6; val[7] = v7;
     for(int i = 8; i < channels; i++) val[i] = _Tp(0);
@@ -261,7 +258,7 @@ template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1
                                                         _Tp v4, _Tp v5, _Tp v6, _Tp v7,
                                                         _Tp v8)
 {
-    assert(channels >= 9);
+    CV_StaticAssert(channels >= 9, "Matx should have at least 9 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2; val[3] = v3;
     val[4] = v4; val[5] = v5; val[6] = v6; val[7] = v7;
     val[8] = v8;
@@ -272,7 +269,7 @@ template<typename _Tp, int m, int n> inline Matx<_Tp, m, n>::Matx(_Tp v0, _Tp v1
                                                         _Tp v4, _Tp v5, _Tp v6, _Tp v7,
                                                         _Tp v8, _Tp v9)
 {
-    assert(channels >= 10);
+    CV_StaticAssert(channels >= 10, "Matx should have at least 10 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2; val[3] = v3;
     val[4] = v4; val[5] = v5; val[6] = v6; val[7] = v7;
     val[8] = v8; val[9] = v9;
@@ -285,7 +282,7 @@ inline Matx<_Tp,m,n>::Matx(_Tp v0, _Tp v1, _Tp v2, _Tp v3,
                             _Tp v4, _Tp v5, _Tp v6, _Tp v7,
                             _Tp v8, _Tp v9, _Tp v10, _Tp v11)
 {
-    assert(channels == 12);
+    CV_StaticAssert(channels == 12, "Matx should have at least 12 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2; val[3] = v3;
     val[4] = v4; val[5] = v5; val[6] = v6; val[7] = v7;
     val[8] = v8; val[9] = v9; val[10] = v10; val[11] = v11;
@@ -297,7 +294,7 @@ inline Matx<_Tp,m,n>::Matx(_Tp v0, _Tp v1, _Tp v2, _Tp v3,
                            _Tp v8, _Tp v9, _Tp v10, _Tp v11,
                            _Tp v12, _Tp v13, _Tp v14, _Tp v15)
 {
-    assert(channels == 16);
+    CV_StaticAssert(channels == 16, "Matx should have at least 16 elaments.");
     val[0] = v0; val[1] = v1; val[2] = v2; val[3] = v3;
     val[4] = v4; val[5] = v5; val[6] = v6; val[7] = v7;
     val[8] = v8; val[9] = v9; val[10] = v10; val[11] = v11;
@@ -2522,114 +2519,6 @@ inline Point LineIterator::pos() const
     return p;
 }
 
-/////////////////////////////// AutoBuffer ////////////////////////////////////////
-
-template<typename _Tp, size_t fixed_size> inline
-AutoBuffer<_Tp, fixed_size>::AutoBuffer()
-{
-    ptr = buf;
-    sz = fixed_size;
-}
-
-template<typename _Tp, size_t fixed_size> inline
-AutoBuffer<_Tp, fixed_size>::AutoBuffer(size_t _size)
-{
-    ptr = buf;
-    sz = fixed_size;
-    allocate(_size);
-}
-
-template<typename _Tp, size_t fixed_size> inline
-AutoBuffer<_Tp, fixed_size>::AutoBuffer(const AutoBuffer<_Tp, fixed_size>& abuf )
-{
-    ptr = buf;
-    sz = fixed_size;
-    allocate(abuf.size);
-    for( size_t i = 0; i < sz; i++ )
-        ptr[i] = abuf.ptr[i];
-}
-
-template<typename _Tp, size_t fixed_size> inline AutoBuffer<_Tp, fixed_size>&
-AutoBuffer<_Tp, fixed_size>::operator = (const AutoBuffer<_Tp, fixed_size>& abuf)
-{
-    if( this != &abuf )
-    {
-        deallocate();
-        allocate(abuf.size);
-        for( size_t i = 0; i < sz; i++ )
-            ptr[i] = abuf.ptr[i];
-    }
-    return *this;
-}
-
-template<typename _Tp, size_t fixed_size> inline
-AutoBuffer<_Tp, fixed_size>::~AutoBuffer()
-{ deallocate(); }
-
-template<typename _Tp, size_t fixed_size> inline void
-AutoBuffer<_Tp, fixed_size>::allocate(size_t _size)
-{
-    if(_size <= sz)
-    {
-        sz = _size;
-        return;
-    }
-    deallocate();
-    if(_size > fixed_size)
-    {
-        ptr = new _Tp[_size];
-        sz = _size;
-    }
-}
-
-template<typename _Tp, size_t fixed_size> inline void
-AutoBuffer<_Tp, fixed_size>::deallocate()
-{
-    if( ptr != buf )
-    {
-        delete[] ptr;
-        ptr = buf;
-        sz = fixed_size;
-    }
-}
-
-template<typename _Tp, size_t fixed_size> inline void
-AutoBuffer<_Tp, fixed_size>::resize(size_t _size)
-{
-    if(_size <= sz)
-    {
-        sz = _size;
-        return;
-    }
-    size_t i, prevsize = sz, minsize = MIN(prevsize, _size);
-    _Tp* prevptr = ptr;
-    
-    ptr = _size > fixed_size ? new _Tp[_size] : buf;
-    sz = _size;
-    
-    if( ptr != prevptr )
-        for( i = 0; i < minsize; i++ )
-            ptr[i] = prevptr[i];
-    for( i = prevsize; i < _size; i++ )
-        ptr[i] = _Tp();
-    
-    if( prevptr != buf )
-        delete[] prevptr;
-}
-
-template<typename _Tp, size_t fixed_size> inline size_t
-AutoBuffer<_Tp, fixed_size>::size() const
-{ return sz; }
-
-template<typename _Tp, size_t fixed_size> inline
-AutoBuffer<_Tp, fixed_size>::operator _Tp* ()
-{ return ptr; }
-
-template<typename _Tp, size_t fixed_size> inline
-AutoBuffer<_Tp, fixed_size>::operator const _Tp* () const
-{ return ptr; }
-
-
 /////////////////////////////////// Ptr ////////////////////////////////////////
 
 template<typename _Tp> inline Ptr<_Tp>::Ptr() : obj(0), refcount(0) {}
@@ -2759,18 +2648,18 @@ template<> CV_EXPORTS void Ptr<CvFileStorage>::delete_obj();
 
 //////////////////////////////////////// XML & YAML I/O ////////////////////////////////////
 
-CV_EXPORTS_W void write( FileStorage& fs, const std::string& name, int value );
-CV_EXPORTS_W void write( FileStorage& fs, const std::string& name, float value );
-CV_EXPORTS_W void write( FileStorage& fs, const std::string& name, double value );
-CV_EXPORTS_W void write( FileStorage& fs, const std::string& name, const std::string& value );
+CV_EXPORTS_W void write( FileStorage& fs, const String& name, int value );
+CV_EXPORTS_W void write( FileStorage& fs, const String& name, float value );
+CV_EXPORTS_W void write( FileStorage& fs, const String& name, double value );
+CV_EXPORTS_W void write( FileStorage& fs, const String& name, const String& value );
 
 template<typename _Tp> inline void write(FileStorage& fs, const _Tp& value)
-{ write(fs, std::string(), value); }
+{ write(fs, String(), value); }
 
 CV_EXPORTS void writeScalar( FileStorage& fs, int value );
 CV_EXPORTS void writeScalar( FileStorage& fs, float value );
 CV_EXPORTS void writeScalar( FileStorage& fs, double value );
-CV_EXPORTS void writeScalar( FileStorage& fs, const std::string& value );
+CV_EXPORTS void writeScalar( FileStorage& fs, const String& value );
 
 template<> inline void write( FileStorage& fs, const int& value )
 {
@@ -2787,7 +2676,7 @@ template<> inline void write( FileStorage& fs, const double& value )
     writeScalar(fs, value);
 }
 
-template<> inline void write( FileStorage& fs, const std::string& value )
+template<> inline void write( FileStorage& fs, const String& value )
 {
     writeScalar(fs, value);
 }
@@ -2848,20 +2737,20 @@ inline void write(FileStorage& fs, const Range& r )
 class CV_EXPORTS WriteStructContext
 {
 public:
-    WriteStructContext(FileStorage& _fs, const std::string& name,
-        int flags, const std::string& typeName=std::string());
+    WriteStructContext(FileStorage& _fs, const String& name,
+        int flags, const String& typeName=String());
     ~WriteStructContext();
     FileStorage* fs;
 };
 
-template<typename _Tp> inline void write(FileStorage& fs, const std::string& name, const Point_<_Tp>& pt )
+template<typename _Tp> inline void write(FileStorage& fs, const String& name, const Point_<_Tp>& pt )
 {
     WriteStructContext ws(fs, name, CV_NODE_SEQ+CV_NODE_FLOW);
     write(fs, pt.x);
     write(fs, pt.y);
 }
 
-template<typename _Tp> inline void write(FileStorage& fs, const std::string& name, const Point3_<_Tp>& pt )
+template<typename _Tp> inline void write(FileStorage& fs, const String& name, const Point3_<_Tp>& pt )
 {
     WriteStructContext ws(fs, name, CV_NODE_SEQ+CV_NODE_FLOW);
     write(fs, pt.x);
@@ -2869,21 +2758,21 @@ template<typename _Tp> inline void write(FileStorage& fs, const std::string& nam
     write(fs, pt.z);
 }
 
-template<typename _Tp> inline void write(FileStorage& fs, const std::string& name, const Size_<_Tp>& sz )
+template<typename _Tp> inline void write(FileStorage& fs, const String& name, const Size_<_Tp>& sz )
 {
     WriteStructContext ws(fs, name, CV_NODE_SEQ+CV_NODE_FLOW);
     write(fs, sz.width);
     write(fs, sz.height);
 }
 
-template<typename _Tp> inline void write(FileStorage& fs, const std::string& name, const Complex<_Tp>& c )
+template<typename _Tp> inline void write(FileStorage& fs, const String& name, const Complex<_Tp>& c )
 {
     WriteStructContext ws(fs, name, CV_NODE_SEQ+CV_NODE_FLOW);
     write(fs, c.re);
     write(fs, c.im);
 }
 
-template<typename _Tp> inline void write(FileStorage& fs, const std::string& name, const Rect_<_Tp>& r )
+template<typename _Tp> inline void write(FileStorage& fs, const String& name, const Rect_<_Tp>& r )
 {
     WriteStructContext ws(fs, name, CV_NODE_SEQ+CV_NODE_FLOW);
     write(fs, r.x);
@@ -2892,14 +2781,14 @@ template<typename _Tp> inline void write(FileStorage& fs, const std::string& nam
     write(fs, r.height);
 }
 
-template<typename _Tp, int cn> inline void write(FileStorage& fs, const std::string& name, const Vec<_Tp, cn>& v )
+template<typename _Tp, int cn> inline void write(FileStorage& fs, const String& name, const Vec<_Tp, cn>& v )
 {
     WriteStructContext ws(fs, name, CV_NODE_SEQ+CV_NODE_FLOW);
     for(int i = 0; i < cn; i++)
         write(fs, v.val[i]);
 }
 
-template<typename _Tp> inline void write(FileStorage& fs, const std::string& name, const Scalar_<_Tp>& s )
+template<typename _Tp> inline void write(FileStorage& fs, const String& name, const Scalar_<_Tp>& s )
 {
     WriteStructContext ws(fs, name, CV_NODE_SEQ+CV_NODE_FLOW);
     write(fs, s.val[0]);
@@ -2908,7 +2797,7 @@ template<typename _Tp> inline void write(FileStorage& fs, const std::string& nam
     write(fs, s.val[3]);
 }
 
-inline void write(FileStorage& fs, const std::string& name, const Range& r )
+inline void write(FileStorage& fs, const String& name, const Range& r )
 {
     WriteStructContext ws(fs, name, CV_NODE_SEQ+CV_NODE_FLOW);
     write(fs, r.start);
@@ -2936,7 +2825,7 @@ public:
     {
         int _fmt = DataType<_Tp>::fmt;
         char fmt[] = { (char)((_fmt>>8)+'1'), (char)_fmt, '\0' };
-        fs->writeRaw( std::string(fmt), !vec.empty() ? (uchar*)&vec[0] : 0, vec.size()*sizeof(_Tp) );
+        fs->writeRaw( String(fmt), !vec.empty() ? (uchar*)&vec[0] : 0, vec.size()*sizeof(_Tp) );
     }
     FileStorage* fs;
 };
@@ -2947,15 +2836,15 @@ template<typename _Tp> static inline void write( FileStorage& fs, const std::vec
     w(vec);
 }
 
-template<typename _Tp> static inline void write( FileStorage& fs, const std::string& name,
+template<typename _Tp> static inline void write( FileStorage& fs, const String& name,
                                                 const std::vector<_Tp>& vec )
 {
     WriteStructContext ws(fs, name, CV_NODE_SEQ+(DataType<_Tp>::fmt != 0 ? CV_NODE_FLOW : 0));
     write(fs, vec);
 }
 
-CV_EXPORTS_W void write( FileStorage& fs, const std::string& name, const Mat& value );
-CV_EXPORTS void write( FileStorage& fs, const std::string& name, const SparseMat& value );
+CV_EXPORTS_W void write( FileStorage& fs, const String& name, const Mat& value );
+CV_EXPORTS void write( FileStorage& fs, const String& name, const SparseMat& value );
 
 template<typename _Tp> static inline FileStorage& operator << (FileStorage& fs, const _Tp& value)
 {
@@ -2969,10 +2858,13 @@ template<typename _Tp> static inline FileStorage& operator << (FileStorage& fs, 
     return fs;
 }
 
-CV_EXPORTS FileStorage& operator << (FileStorage& fs, const std::string& str);
+CV_EXPORTS FileStorage& operator << (FileStorage& fs, const String& str);
 
 static inline FileStorage& operator << (FileStorage& fs, const char* str)
-{ return (fs << std::string(str)); }
+{ return (fs << String(str)); }
+
+static inline FileStorage& operator << (FileStorage& fs, char* value)
+{ return (fs << String(value)); }
 
 inline FileNode::FileNode() : fs(0), node(0) {}
 inline FileNode::FileNode(const CvFileStorage* _fs, const CvFileNode* _node)
@@ -3050,13 +2942,16 @@ static inline void read(const FileNode& node, double& value, double default_valu
         CV_NODE_IS_REAL(node.node->tag) ? node.node->data.f : 1e300;
 }
 
-static inline void read(const FileNode& node, std::string& value, const std::string& default_value)
+static inline void read(const FileNode& node, String& value, const String& default_value)
 {
-    value = !node.node ? default_value : CV_NODE_IS_STRING(node.node->tag) ? std::string(node.node->data.str.ptr) : std::string("");
+    value = !node.node ? default_value : CV_NODE_IS_STRING(node.node->tag) ? String(node.node->data.str.ptr) : String();
 }
 
 CV_EXPORTS_W void read(const FileNode& node, Mat& mat, const Mat& default_mat=Mat() );
 CV_EXPORTS void read(const FileNode& node, SparseMat& mat, const SparseMat& default_mat=SparseMat() );
+
+CV_EXPORTS void read(const FileNode& node, std::vector<KeyPoint>& keypoints);
+CV_EXPORTS void write(FileStorage& fs, const String& objname, const std::vector<KeyPoint>& keypoints);
 
 inline FileNode::operator int() const
 {
@@ -3076,14 +2971,19 @@ inline FileNode::operator double() const
     read(*this, value, 0.);
     return value;
 }
-inline FileNode::operator std::string() const
+inline FileNode::operator String() const
 {
-    std::string value;
+    String value;
     read(*this, value, value);
     return value;
 }
 
-inline void FileNode::readRaw( const std::string& fmt, uchar* vec, size_t len ) const
+inline String::String(const FileNode& fn): cstr_(0), len_(0)
+{
+    read(fn, *this, *this);
+}
+
+inline void FileNode::readRaw( const String& fmt, uchar* vec, size_t len ) const
 {
     begin().readRaw( fmt, vec, len );
 }
@@ -3114,7 +3014,7 @@ public:
         size_t remaining1 = remaining/cn;
         count = count < remaining1 ? count : remaining1;
         vec.resize(count);
-        it->readRaw( std::string(fmt), !vec.empty() ? (uchar*)&vec[0] : 0, count*sizeof(_Tp) );
+        it->readRaw( String(fmt), !vec.empty() ? (uchar*)&vec[0] : 0, count*sizeof(_Tp) );
     }
     FileNodeIterator* it;
 };
@@ -3805,7 +3705,7 @@ public:
         {
             FileStorage fs(_fs);
             fs.fs.addref();
-            ((const _ClsName*)ptr)->write(fs, std::string(name));
+            ((const _ClsName*)ptr)->write(fs, String(name));
         }
     }
 
@@ -3967,7 +3867,7 @@ template<typename _Tp> inline std::ostream& operator<<(std::ostream& out, const 
 }
 
 
-template<typename _Tp> inline Ptr<_Tp> Algorithm::create(const std::string& name)
+template<typename _Tp> inline Ptr<_Tp> Algorithm::create(const String& name)
 {
     return _create(name).ptr<_Tp>();
 }
@@ -3983,7 +3883,7 @@ inline void Algorithm::set(const char* _name, const Ptr<_Tp>& value)
 }
 
 template<typename _Tp>
-inline void Algorithm::set(const std::string& _name, const Ptr<_Tp>& value)
+inline void Algorithm::set(const String& _name, const Ptr<_Tp>& value)
 {
     this->set<_Tp>(_name.c_str(), value);
 }
@@ -3999,12 +3899,12 @@ inline void Algorithm::setAlgorithm(const char* _name, const Ptr<_Tp>& value)
 }
 
 template<typename _Tp>
-inline void Algorithm::setAlgorithm(const std::string& _name, const Ptr<_Tp>& value)
+inline void Algorithm::setAlgorithm(const String& _name, const Ptr<_Tp>& value)
 {
     this->set<_Tp>(_name.c_str(), value);
 }
 
-template<typename _Tp> inline typename ParamType<_Tp>::member_type Algorithm::get(const std::string& _name) const
+template<typename _Tp> inline typename ParamType<_Tp>::member_type Algorithm::get(const String& _name) const
 {
     typename ParamType<_Tp>::member_type value;
     info()->get(this, _name.c_str(), ParamType<_Tp>::type, &value);
@@ -4020,7 +3920,7 @@ template<typename _Tp> inline typename ParamType<_Tp>::member_type Algorithm::ge
 
 template<typename _Tp, typename _Base> inline void AlgorithmInfo::addParam(Algorithm& algo, const char* parameter,
                   Ptr<_Tp>& value, bool readOnly, Ptr<_Tp> (Algorithm::*getter)(), void (Algorithm::*setter)(const Ptr<_Tp>&),
-                  const std::string& help)
+                  const String& help)
 {
     //TODO: static assert: _Tp inherits from _Base
     addParam_(algo, parameter, ParamType<_Base>::type, &value, readOnly,
@@ -4029,7 +3929,7 @@ template<typename _Tp, typename _Base> inline void AlgorithmInfo::addParam(Algor
 
 template<typename _Tp> inline void AlgorithmInfo::addParam(Algorithm& algo, const char* parameter,
                   Ptr<_Tp>& value, bool readOnly, Ptr<_Tp> (Algorithm::*getter)(), void (Algorithm::*setter)(const Ptr<_Tp>&),
-                  const std::string& help)
+                  const String& help)
 {
     //TODO: static assert: _Tp inherits from Algorithm
     addParam_(algo, parameter, ParamType<Algorithm>::type, &value, readOnly,

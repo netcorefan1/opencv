@@ -77,16 +77,9 @@ namespace
     };
     size_t colors_mum = sizeof(colors)/sizeof(colors[0]);
 
-namespace {
-
 template<class FwIt, class T> inline void _iota(FwIt first, FwIt last, T value)
 {
-#if (defined __cplusplus  && __cplusplus > 199711L) || defined _STLPORT_MAJOR
-    std::iota(first, last, value);
-#else
     while(first != last) *first++ = value++;
-#endif
-}
 }
 
 void computeNormals( const Octree& Octree, const std::vector<Point3f>& centers, std::vector<Point3f>& normals,
@@ -501,7 +494,7 @@ void cv::Mesh3D::computeNormals(const std::vector<int>& subset, float normalRadi
     ::computeNormals(octree, vtx, normals, mask, normalRadius, minNeighbors);
 }
 
-void cv::Mesh3D::writeAsVrml(const std::string& file, const std::vector<Scalar>& _colors) const
+void cv::Mesh3D::writeAsVrml(const String& file, const std::vector<Scalar>& _colors) const
 {
     std::ofstream ofs(file.c_str());
 

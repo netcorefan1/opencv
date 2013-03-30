@@ -43,7 +43,6 @@
 //
 //M*/
 
-#include <iomanip>
 #include "precomp.hpp"
 
 using namespace cv;
@@ -132,7 +131,7 @@ void cv::ocl::interpolateFrames(const oclMat &frame0, const oclMat &frame1,
 void interpolate::memsetKernel(float val, oclMat &img, int height, int offset)
 {
     Context *clCxt = Context::getContext();
-    std::string kernelName = "memsetKernel";
+    String kernelName = "memsetKernel";
     std::vector< std::pair<size_t, const void *> > args;
     int step = img.step / sizeof(float);
     offset = step * height * offset;
@@ -151,7 +150,7 @@ void interpolate::memsetKernel(float val, oclMat &img, int height, int offset)
 void interpolate::normalizeKernel(oclMat &buffer, int height, int factor_offset, int dst_offset)
 {
     Context *clCxt = Context::getContext();
-    std::string kernelName = "normalizeKernel";
+    String kernelName = "normalizeKernel";
     std::vector< std::pair<size_t, const void *> > args;
     int step   = buffer.step / sizeof(float);
     factor_offset = step * height * factor_offset;
@@ -173,7 +172,7 @@ void interpolate::forwardWarpKernel(const oclMat &src, oclMat &buffer, const ocl
                                     int b_offset, int d_offset)
 {
     Context *clCxt = Context::getContext();
-    std::string kernelName = "forwardWarpKernel";
+    String kernelName = "forwardWarpKernel";
     std::vector< std::pair<size_t, const void *> > args;
     int f_step  = u.step / sizeof(float); // flow step
     int b_step  = buffer.step / sizeof(float);
@@ -211,7 +210,7 @@ void interpolate::blendFrames(const oclMat &frame0, const oclMat &/*frame1*/, co
     int step = buffer.step / sizeof(float);
 
     Context *clCxt = Context::getContext();
-    std::string kernelName = "blendFramesKernel";
+    String kernelName = "blendFramesKernel";
     std::vector< std::pair<size_t, const void *> > args;
 
     args.push_back( std::make_pair( sizeof(cl_mem), (void *)&tex_src0));
@@ -230,73 +229,10 @@ void interpolate::blendFrames(const oclMat &frame0, const oclMat &/*frame1*/, co
 
 void interpolate::bindImgTex(const oclMat &img, cl_mem &texture)
 {
-    cl_image_format format;
-    int err;
-    int depth    = img.depth();
-    int channels = img.channels();
-
-    switch(depth)
-    {
-    case CV_8U:
-        format.image_channel_data_type = CL_UNSIGNED_INT8;
-        break;
-    case CV_32S:
-        format.image_channel_data_type = CL_UNSIGNED_INT32;
-        break;
-    case CV_32F:
-        format.image_channel_data_type = CL_FLOAT;
-        break;
-    default:
-        throw std::exception();
-        break;
-    }
-    switch(channels)
-    {
-    case 1:
-        format.image_channel_order     = CL_R;
-        break;
-    case 3:
-        format.image_channel_order     = CL_RGB;
-        break;
-    case 4:
-        format.image_channel_order     = CL_RGBA;
-        break;
-    default:
-        throw std::exception();
-        break;
-    }
     if(texture)
     {
         openCLFree(texture);
     }
-
-#ifdef CL_VERSION_1_2
-    cl_image_desc desc;
-    desc.image_type       = CL_MEM_OBJECT_IMAGE2D;
-    desc.image_width      = img.step / img.elemSize();
-    desc.image_height     = img.rows;
-    desc.image_depth      = 0;
-    desc.image_array_size = 1;
-    desc.image_row_pitch  = 0;
-    desc.image_slice_pitch = 0;
-    desc.buffer           = NULL;
-    desc.num_mip_levels   = 0;
-    desc.num_samples      = 0;
-    texture = clCreateImage(Context::getContext()->impl->clContext, CL_MEM_READ_WRITE, &format, &desc, NULL, &err);
-#else
-    texture = clCreateImage2D(
-                  Context::getContext()->impl->clContext,
-                  CL_MEM_READ_WRITE,
-                  &format,
-                  img.step / img.elemSize(),
-                  img.rows,
-                  0,
-                  NULL,
-                  &err);
-#endif
-    size_t origin[] = { 0, 0, 0 };
-    size_t region[] = { img.step / img.elemSize(), img.rows, 1 };
-    clEnqueueCopyBufferToImage(img.clCxt->impl->clCmdQueue, (cl_mem)img.data, texture, 0, origin, region, 0, NULL, 0);
-    openCLSafeCall(err);
+    texture = bindTexture(img);
 }
 

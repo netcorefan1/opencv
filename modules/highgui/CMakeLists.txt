@@ -20,6 +20,12 @@ if(WITH_JPEG)
   list(APPEND GRFMT_LIBS ${JPEG_LIBRARIES})
 endif()
 
+if(WITH_WEBP)
+  add_definitions(-DHAVE_WEBP)
+  ocv_include_directories(${WEBP_INCLUDE_DIR})
+  list(APPEND GRFMT_LIBS ${WEBP_LIBRARIES})
+endif()
+
 if(WITH_PNG)
   add_definitions(-DHAVE_PNG)
   add_definitions(${PNG_DEFINITIONS})
@@ -68,7 +74,7 @@ set(highgui_srcs
     src/window.cpp
     )
 
-file(GLOB highgui_ext_hdrs "include/opencv2/${name}/*.hpp" "include/opencv2/${name}/*.h")
+file(GLOB highgui_ext_hdrs "include/opencv2/*.hpp" "include/opencv2/${name}/*.hpp" "include/opencv2/${name}/*.h")
 
 if(HAVE_QT)
   if (HAVE_QT_OPENGL)
@@ -270,6 +276,20 @@ if(WIN32 AND WITH_FFMPEG)
   #                     COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/$<CONFIGURATION>/${ffmpeg_bare_name_ver}"
   #                     COMMENT "Copying ${ffmpeg_path} to the output directory")
   #else
+  if(MSVC_IDE)
+    add_custom_command(TARGET ${the_module} POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/Release/${ffmpeg_bare_name_ver}"
+                       COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/Debug/${ffmpeg_bare_name_ver}"
+                       COMMENT "Copying ${ffmpeg_path} to the output directory")
+  elseif(MSVC AND (CMAKE_GENERATOR MATCHES "Visual"))
+    add_custom_command(TARGET ${the_module} POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/${ffmpeg_bare_name_ver}"
+                       COMMENT "Copying ${ffmpeg_path} to the output directory")
+  else()
+    add_custom_command(TARGET ${the_module} POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/${ffmpeg_bare_name_ver}"
+                       COMMENT "Copying ${ffmpeg_path} to the output directory")
+  endif()
 
   add_custom_command(TARGET ${the_module} POST_BUILD
                      COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"

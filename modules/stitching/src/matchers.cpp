@@ -50,7 +50,7 @@ using namespace cv::gpu;
 #endif
 
 #ifdef HAVE_OPENCV_NONFREE
-#include "opencv2/nonfree/nonfree.hpp"
+#include "opencv2/nonfree.hpp"
 
 static bool makeUseOfNonfree = initModule_nonfree();
 #endif
@@ -428,7 +428,7 @@ void OrbFeaturesFinder::find(const Mat &image, ImageFeatures &features)
     }
 }
 
-#ifdef HAVE_OPENCV_GPU
+#if defined(HAVE_OPENCV_NONFREE) && defined(HAVE_OPENCV_GPU)
 SurfFeaturesFinderGpu::SurfFeaturesFinderGpu(double hess_thresh, int num_octaves, int num_layers,
                                              int num_octaves_descr, int num_layers_descr)
 {
@@ -573,7 +573,7 @@ void BestOf2NearestMatcher::match(const ImageFeatures &features1, const ImageFea
 
     // Find pair-wise motion
     matches_info.H = findHomography(src_points, dst_points, matches_info.inliers_mask, CV_RANSAC);
-    if (std::abs(determinant(matches_info.H)) < std::numeric_limits<double>::epsilon())
+    if (matches_info.H.empty() || std::abs(determinant(matches_info.H)) < std::numeric_limits<double>::epsilon())
         return;
 
     // Find number of inliers

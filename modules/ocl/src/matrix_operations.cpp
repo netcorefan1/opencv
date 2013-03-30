@@ -68,6 +68,8 @@ namespace cv
         extern const char *operator_setTo;
         extern const char *operator_setToM;
         extern const char *convertC3C4;
+        extern DevMemType gDeviceMemType;
+        extern DevMemRW gDeviceMemRW;
     }
 }
 
@@ -78,7 +80,7 @@ static void convert_C3C4(const cl_mem &src, oclMat &dst)
     int dstStep_in_pixel = dst.step1() / dst.oclchannels();
     int pixel_end = dst.wholecols * dst.wholerows - 1;
     Context *clCxt = dst.clCxt;
-    std::string kernelName = "convertC3C4";
+    String kernelName = "convertC3C4";
     char compile_option[32];
     switch(dst.depth())
     {
@@ -126,7 +128,7 @@ static void convert_C4C3(const oclMat &src, cl_mem &dst)
     int srcStep_in_pixel = src.step1() / src.oclchannels();
     int pixel_end = src.wholecols * src.wholerows - 1;
     Context *clCxt = src.clCxt;
-    std::string kernelName = "convertC4C3";
+    String kernelName = "convertC4C3";
     char compile_option[32];
     switch(src.depth())
     {
@@ -187,7 +189,7 @@ void cv::ocl::oclMat::upload(const Mat &m)
         int pitch = wholeSize.width * 3 * m.elemSize1();
         int tail_padding = m.elemSize1() * 3072;
         int err;
-        cl_mem temp = clCreateBuffer(clCxt->impl->clContext, CL_MEM_READ_WRITE,
+        cl_mem temp = clCreateBuffer((cl_context)clCxt->oclContext(), CL_MEM_READ_WRITE,
                                      (pitch * wholeSize.height + tail_padding - 1) / tail_padding * tail_padding, 0, &err);
         openCLVerifyCall(err);
 
@@ -239,7 +241,7 @@ void cv::ocl::oclMat::download(cv::Mat &m) const
         int pitch = wholecols * 3 * m.elemSize1();
         int tail_padding = m.elemSize1() * 3072;
         int err;
-        cl_mem temp = clCreateBuffer(clCxt->impl->clContext, CL_MEM_READ_WRITE,
+        cl_mem temp = clCreateBuffer((cl_context)clCxt->oclContext(), CL_MEM_READ_WRITE,
                                      (pitch * wholerows + tail_padding - 1) / tail_padding * tail_padding, 0, &err);
         openCLVerifyCall(err);
 
@@ -283,7 +285,7 @@ inline int divUp(int total, int grain)
 ///////////////////////////////////////////////////////////////////////////
 ////////////////////////////////// CopyTo /////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
-static void copy_to_with_mask(const oclMat &src, oclMat &dst, const oclMat &mask, std::string kernelName)
+static void copy_to_with_mask(const oclMat &src, oclMat &dst, const oclMat &mask, String kernelName)
 {
     CV_DbgAssert( dst.rows == mask.rows && dst.cols == mask.cols &&
                   src.rows == dst.rows && src.cols == dst.cols
@@ -291,7 +293,7 @@ static void copy_to_with_mask(const oclMat &src, oclMat &dst, const oclMat &mask
 
     std::vector<std::pair<size_t , const void *> > args;
 
-    std::string string_types[4][7] = {{"uchar", "char", "ushort", "short", "int", "float", "double"},
+    String string_types[4][7] = {{"uchar", "char", "ushort", "short", "int", "float", "double"},
         {"uchar2", "char2", "ushort2", "short2", "int2", "float2", "double2"},
         {"uchar3", "char3", "ushort3", "short3", "int3", "float3", "double3"},
         {"uchar4", "char4", "ushort4", "short4", "int4", "float4", "double4"}
@@ -350,10 +352,10 @@ void cv::ocl::oclMat::copyTo( oclMat &mat, const oclMat &mask) const
 ///////////////////////////////////////////////////////////////////////////
 static void convert_run(const oclMat &src, oclMat &dst, double alpha, double beta)
 {
-    std::string kernelName = "convert_to_S";
+    String kernelName = "convert_to_S";
     std::stringstream idxStr;
     idxStr << src.depth();
-    kernelName += idxStr.str();
+    kernelName = kernelName + idxStr.str().c_str();
     float alpha_f = alpha, beta_f = beta;
     CV_DbgAssert(src.rows == dst.rows && src.cols == dst.cols);
     std::vector<std::pair<size_t , const void *> > args;
@@ -419,7 +421,7 @@ oclMat &cv::ocl::oclMat::operator = (const Scalar &s)
     setTo(s);
     return *this;
 }
-static void set_to_withoutmask_run(const oclMat &dst, const Scalar &scalar, std::string kernelName)
+static void set_to_withoutmask_run(const oclMat &dst, const Scalar &scalar, String kernelName)
 {
     std::vector<std::pair<size_t , const void *> > args;
 
@@ -592,7 +594,7 @@ static void set_to_withoutmask_run(const oclMat &dst, const Scalar &scalar, std:
 #ifdef CL_VERSION_1_2
     if(dst.offset == 0 && dst.cols == dst.wholecols)
     {
-        clEnqueueFillBuffer(dst.clCxt->impl->clCmdQueue, (cl_mem)dst.data, args[0].second, args[0].first, 0, dst.step * dst.rows, 0, NULL, NULL);
+        clEnqueueFillBuffer((cl_command_queue)dst.clCxt->oclCommandQueue(), (cl_mem)dst.data, args[0].second, args[0].first, 0, dst.step * dst.rows, 0, NULL, NULL);
     }
     else
     {
@@ -615,7 +617,7 @@ static void set_to_withoutmask_run(const oclMat &dst, const Scalar &scalar, std:
 #endif
 }
 
-static void set_to_withmask_run(const oclMat &dst, const Scalar &scalar, const oclMat &mask, std::string kernelName)
+static void set_to_withmask_run(const oclMat &dst, const Scalar &scalar, const oclMat &mask, String kernelName)
 {
     CV_DbgAssert( dst.rows == mask.rows && dst.cols == mask.cols);
     std::vector<std::pair<size_t , const void *> > args;
@@ -911,7 +913,17 @@ oclMat cv::ocl::oclMat::reshape(int new_cn, int new_rows) const
 
 }
 
+void cv::ocl::oclMat::createEx(Size size, int type, DevMemRW rw_type, DevMemType mem_type)
+{
+    createEx(size.height, size.width, type, rw_type, mem_type);
+}
+
 void cv::ocl::oclMat::create(int _rows, int _cols, int _type)
+{
+    createEx(_rows, _cols, _type, gDeviceMemRW, gDeviceMemType);
+}
+
+void cv::ocl::oclMat::createEx(int _rows, int _cols, int _type, DevMemRW rw_type, DevMemType mem_type)
 {
     clCxt = Context::getContext();
     /* core logic */
@@ -936,7 +948,7 @@ void cv::ocl::oclMat::create(int _rows, int _cols, int _type)
         size_t esz = elemSize();
 
         void *dev_ptr;
-        openCLMallocPitch(clCxt, &dev_ptr, &step, GPU_MATRIX_MALLOC_STEP(esz * cols), rows);
+        openCLMallocPitchEx(clCxt, &dev_ptr, &step, GPU_MATRIX_MALLOC_STEP(esz * cols), rows, rw_type, mem_type);
         //openCLMallocPitch(clCxt,&dev_ptr, &step, esz * cols, rows);
 
         if (esz * cols == step)
