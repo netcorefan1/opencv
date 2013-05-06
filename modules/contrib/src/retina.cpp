@@ -71,6 +71,7 @@
 #include "precomp.hpp"
 #include "retinafilter.hpp"
 #include <cstdio>
+#include <sstream>
 
 namespace cv
 {
@@ -449,7 +450,7 @@ bool Retina::_convertCvMat2ValarrayBuffer(const cv::Mat inputMatToConvert, std::
         inputMatToConvert.convertTo(dst, dsttype);
     }
         else
-            CV_Error(CV_StsUnsupportedFormat, "input image must be single channel (gray levels), bgr format (color) or bgra (color with transparency which won't be considered");
+            CV_Error(Error::StsUnsupportedFormat, "input image must be single channel (gray levels), bgr format (color) or bgra (color with transparency which won't be considered");
 
     return imageNumberOfChannels>1; // return bool : false for gray level image processing, true for color mode
 }

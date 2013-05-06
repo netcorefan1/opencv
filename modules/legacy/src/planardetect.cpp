@@ -41,6 +41,7 @@
 //M*/
 
 #include "precomp.hpp"
+#include "opencv2/calib3d.hpp"
 #include <stdio.h>
 
 namespace cv
@@ -389,7 +390,7 @@ void LDetector::getMostStable2D(const Mat& image, std::vector<KeyPoint>& keypoin
 
     if( (int)keypoints.size() > maxPoints )
     {
-        sort(keypoints, CmpKeypointScores());
+        std::sort(keypoints.begin(), keypoints.end(), CmpKeypointScores());
         keypoints.resize(maxPoints);
     }
 }
@@ -602,7 +603,7 @@ void LDetector::operator()(const std::vector<Mat>& pyr, std::vector<KeyPoint>& k
 
     if( maxCount > 0 && keypoints.size() > (size_t)maxCount )
     {
-        sort(keypoints, CmpKeypointScores());
+        std::sort(keypoints.begin(), keypoints.end(), CmpKeypointScores());
         keypoints.resize(maxCount);
     }
 }
@@ -619,7 +620,7 @@ void LDetector::read(const FileNode& objnode)
 
 void LDetector::write(FileStorage& fs, const String& name) const
 {
-    WriteStructContext ws(fs, name, CV_NODE_MAP);
+    internal::WriteStructContext ws(fs, name, CV_NODE_MAP);
 
     fs << "radius" << radius
     << "threshold" << threshold
@@ -709,7 +710,7 @@ FernClassifier::FernClassifier(const std::vector<std::vector<Point2f> >& points,
 
 void FernClassifier::write(FileStorage& fs, const String& objname) const
 {
-    WriteStructContext ws(fs, objname, CV_NODE_MAP);
+    internal::WriteStructContext ws(fs, objname, CV_NODE_MAP);
 
     cv::write(fs, "nstructs", nstructs);
     cv::write(fs, "struct-size", structSize);
@@ -718,7 +719,7 @@ void FernClassifier::write(FileStorage& fs, const String& objname) const
     cv::write(fs, "compression-method", compressionMethod);
     cv::write(fs, "patch-size", patchSize.width);
     {
-        WriteStructContext wsf(fs, "features", CV_NODE_SEQ + CV_NODE_FLOW);
+        internal::WriteStructContext wsf(fs, "features", CV_NODE_SEQ + CV_NODE_FLOW);
         int i, nfeatures = (int)features.size();
         for( i = 0; i < nfeatures; i++ )
         {
@@ -727,7 +728,7 @@ void FernClassifier::write(FileStorage& fs, const String& objname) const
         }
     }
     {
-        WriteStructContext wsp(fs, "posteriors", CV_NODE_SEQ + CV_NODE_FLOW);
+        internal::WriteStructContext wsp(fs, "posteriors", CV_NODE_SEQ + CV_NODE_FLOW);
         cv::write(fs, posteriors);
     }
 }
@@ -1478,10 +1479,10 @@ void PlanarObjectDetector::read(const FileNode& node)
 
 void PlanarObjectDetector::write(FileStorage& fs, const String& objname) const
 {
-    WriteStructContext ws(fs, objname, CV_NODE_MAP);
+    internal::WriteStructContext ws(fs, objname, CV_NODE_MAP);
 
     {
-        WriteStructContext wsroi(fs, "model-roi", CV_NODE_SEQ + CV_NODE_FLOW);
+        internal::WriteStructContext wsroi(fs, "model-roi", CV_NODE_SEQ + CV_NODE_FLOW);
         cv::write(fs, modelROI.x);
         cv::write(fs, modelROI.y);
         cv::write(fs, modelROI.width);

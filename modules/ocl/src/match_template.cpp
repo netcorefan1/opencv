@@ -98,11 +98,25 @@ namespace cv
         // Evaluates optimal template's area threshold. If
         // template's area is less  than the threshold, we use naive match
         // template version, otherwise FFT-based (if available)
-        static bool useNaive(int , int , Size )
+        static bool useNaive(int method, int depth, Size size)
         {
-            // FIXME!
-            //   always use naive until convolve is imported
+#ifdef HAVE_CLAMDFFT
+            if (method == TM_SQDIFF && (depth == CV_32F || !Context::getContext()->supportsFeature(Context::CL_DOUBLE)))
+            {
+                return true;
+            }
+            else if(method == TM_CCORR || (method == TM_SQDIFF && depth == CV_8U))
+            {
+                return size.height < 18 && size.width < 18;
+            }
+            else
+                return false;
+#else
+#define UNUSED(x) (void)(x);
+            UNUSED(method) UNUSED(depth) UNUSED(size)
+#undef  UNUSED
             return true;
+#endif
         }
 
         //////////////////////////////////////////////////////////////////////
@@ -111,7 +125,7 @@ namespace cv
             const oclMat &image, const oclMat &templ, oclMat &result, MatchTemplateBuf & buf)
         {
             result.create(image.rows - templ.rows + 1, image.cols - templ.cols + 1, CV_32F);
-            if (useNaive(CV_TM_SQDIFF, image.depth(), templ.size()))
+            if (useNaive(TM_SQDIFF, image.depth(), templ.size()))
             {
                 matchTemplateNaive_SQDIFF(image, templ, result, image.oclchannels());
                 return;
@@ -223,16 +237,25 @@ namespace cv
         //////////////////////////////////////////////////////////////////////
         // CCORR
         void convolve_32F(
-            const oclMat &, const oclMat &, oclMat &, MatchTemplateBuf &)
+            const oclMat &image, const oclMat &templ, oclMat &result, MatchTemplateBuf &buf)
         {
-            CV_Error(-1, "convolve is not fully implemented yet");
+            ConvolveBuf convolve_buf;
+            convolve_buf.user_block_size = buf.user_block_size;
+            if (image.oclchannels() == 1)
+                convolve(image, templ, result, true, convolve_buf);
+            else
+            {
+                oclMat result_;
+                convolve(image.reshape(1), templ.reshape(1), result_, true, convolve_buf);
+                extractFirstChannel_32F(result_, result);
+            }
         }
 
         void matchTemplate_CCORR(
             const oclMat &image, const oclMat &templ, oclMat &result, MatchTemplateBuf &buf)
         {
             result.create(image.rows - templ.rows + 1, image.cols - templ.cols + 1, CV_32F);
-            if (useNaive(CV_TM_CCORR, image.depth(), templ.size()))
+            if (useNaive(TM_CCORR, image.depth(), templ.size()))
             {
                 matchTemplateNaive_CCORR(image, templ, result, image.oclchannels());
                 return;
@@ -384,7 +407,7 @@ namespace cv
                     args.push_back( std::make_pair( sizeof(cl_float), (void *)&templ_sum[3]) );
                     break;
                 default:
-                    CV_Error(CV_StsBadArg, "matchTemplate: unsupported number of channels");
+                    CV_Error(Error::StsBadArg, "matchTemplate: unsupported number of channels");
                     break;
                 }
             }
@@ -490,7 +513,7 @@ namespace cv
                     args.push_back( std::make_pair( sizeof(cl_float), (void *)&templ_sqsum_sum) );
                     break;
                 default:
-                    CV_Error(CV_StsBadArg, "matchTemplate: unsupported number of channels");
+                    CV_Error(Error::StsBadArg, "matchTemplate: unsupported number of channels");
                     break;
                 }
             }

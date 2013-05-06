@@ -42,13 +42,12 @@
 #ifndef __OPENCV_LEGACY_HPP__
 #define __OPENCV_LEGACY_HPP__
 
-#include "opencv2/imgproc.hpp"
 #include "opencv2/imgproc/imgproc_c.h"
-#include "opencv2/features2d.hpp"
-#include "opencv2/calib3d.hpp"
+#include "opencv2/calib3d/calib3d_c.h"
 #include "opencv2/ml.hpp"
 
 #ifdef __cplusplus
+#include "opencv2/features2d.hpp"
 extern "C" {
 #endif
 

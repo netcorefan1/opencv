@@ -29,7 +29,7 @@ void convertAndResize(const T& src, T& gray, T& resized, double scale)
 {
     if (src.channels() == 3)
     {
-        cvtColor( src, gray, CV_BGR2GRAY );
+        cvtColor( src, gray, COLOR_BGR2GRAY );
     }
     else
     {
@@ -59,15 +59,15 @@ static void matPrint(Mat &img, int lineOffsY, Scalar fontColor, const string &ss
     Point org;
     org.x = 1;
     org.y = 3 * fontSize.height * (lineOffsY + 1) / 2;
-    putText(img, ss, org, fontFace, fontScale, CV_RGB(0,0,0), 5*fontThickness/2, 16);
+    putText(img, ss, org, fontFace, fontScale, Scalar(0,0,0), 5*fontThickness/2, 16);
     putText(img, ss, org, fontFace, fontScale, fontColor, fontThickness, 16);
 }
 
 
 static void displayState(Mat &canvas, bool bHelp, bool bGpu, bool bLargestFace, bool bFilter, double fps)
 {
-    Scalar fontColorRed = CV_RGB(255,0,0);
-    Scalar fontColorNV  = CV_RGB(118,185,0);
+    Scalar fontColorRed = Scalar(255,0,0);
+    Scalar fontColorNV  = Scalar(118,185,0);
 
     ostringstream ss;
     ss << "FPS = " << setprecision(1) << fixed << fps;
@@ -228,8 +228,8 @@ int main(int argc, const char *argv[])
             Size minSize = cascade_gpu.getClassifierSize();
             cascade_cpu.detectMultiScale(resized_cpu, facesBuf_cpu, 1.2,
                                          (filterRects || findLargestObject) ? 4 : 0,
-                                         (findLargestObject ? CV_HAAR_FIND_BIGGEST_OBJECT : 0)
-                                            | CV_HAAR_SCALE_IMAGE,
+                                         (findLargestObject ? CASCADE_FIND_BIGGEST_OBJECT : 0)
+                                            | CASCADE_SCALE_IMAGE,
                                          minSize);
             detections_num = (int)facesBuf_cpu.size();
         }
@@ -272,7 +272,7 @@ int main(int argc, const char *argv[])
         }
         cout << endl;
 
-        cvtColor(resized_cpu, frameDisp, CV_GRAY2BGR);
+        cvtColor(resized_cpu, frameDisp, COLOR_GRAY2BGR);
         displayState(frameDisp, helpScreen, useGPU, findLargestObject, filterRects, fps);
         imshow("result", frameDisp);
 

@@ -46,13 +46,13 @@
 #ifndef __OPENCV_OCL_PRIVATE_UTIL__
 #define __OPENCV_OCL_PRIVATE_UTIL__
 
-#include "opencv2/ocl.hpp"
-
 #if defined __APPLE__
 #include <OpenCL/OpenCL.h>
 #else
 #include <CL/opencl.h>
 #endif
+
+#include "opencv2/ocl.hpp"
 
 namespace cv
 {
@@ -68,7 +68,8 @@ namespace cv
         void CV_EXPORTS openCLMallocPitch(Context *clCxt, void **dev_ptr, size_t *pitch,
                                           size_t widthInBytes, size_t height);
         void CV_EXPORTS openCLMallocPitchEx(Context *clCxt, void **dev_ptr, size_t *pitch,
-                                            size_t widthInBytes, size_t height, DevMemRW rw_type, DevMemType mem_type);
+                                            size_t widthInBytes, size_t height,
+                                            DevMemRW rw_type, DevMemType mem_type, void* hptr = 0);
         void CV_EXPORTS openCLMemcpy2D(Context *clCxt, void *dst, size_t dpitch,
                                        const void *src, size_t spitch,
                                        size_t width, size_t height, openCLMemcpyKind kind, int channels = -1);
@@ -127,8 +128,9 @@ namespace cv
         // currently only support wavefront size queries
         enum DEVICE_INFO
         {
-             WAVEFRONT_SIZE,            //in AMD speak
-             WARP_SIZE = WAVEFRONT_SIZE //in nvidia speak
+            WAVEFRONT_SIZE,             //in AMD speak
+            WARP_SIZE = WAVEFRONT_SIZE, //in nvidia speak
+            IS_CPU_DEVICE               //check if the device is CPU
         };
         //info should have been pre-allocated
         void CV_EXPORTS queryDeviceInfo(DEVICE_INFO info_type, void* info);

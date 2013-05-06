@@ -149,7 +149,7 @@ GPU_TEST_P(HoughCircles, Accuracy)
     drawCircles(src, circles_gold, true);
 
     cv::gpu::GpuMat d_circles;
-    cv::gpu::HoughCircles(loadMat(src, useRoi), d_circles, CV_HOUGH_GRADIENT, dp, minDist, cannyThreshold, votesThreshold, minRadius, maxRadius);
+    cv::gpu::HoughCircles(loadMat(src, useRoi), d_circles, cv::HOUGH_GRADIENT, dp, minDist, cannyThreshold, votesThreshold, minRadius, maxRadius);
 
     std::vector<cv::Vec3f> circles;
     cv::gpu::HoughCirclesDownload(d_circles, circles);
@@ -214,7 +214,7 @@ GPU_TEST_P(GeneralizedHough, POSITION)
         templ.copyTo(imageROI);
     }
 
-    cv::Ptr<cv::gpu::GeneralizedHough_GPU> hough = cv::gpu::GeneralizedHough_GPU::create(cv::GHT_POSITION);
+    cv::Ptr<cv::gpu::GeneralizedHough_GPU> hough = cv::gpu::GeneralizedHough_GPU::create(cv::GeneralizedHough::GHT_POSITION);
     hough->set("votesThreshold", 200);
 
     hough->setTemplate(loadMat(templ, useRoi));

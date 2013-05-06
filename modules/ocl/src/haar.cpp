@@ -53,6 +53,8 @@
 using namespace cv;
 using namespace cv::ocl;
 
+#if 0
+
 namespace cv
 {
 namespace ocl
@@ -906,7 +908,7 @@ CvSeq *cv::ocl::OclCascadeClassifier::oclHaarDetectObjects( oclMat &gimg, CvMemS
 
     if( CV_MAT_CN(gimg.type()) > 1 )
     {
-        cvtColor( gimg, gtemp, CV_BGR2GRAY );
+        cvtColor( gimg, gtemp, COLOR_BGR2GRAY );
         gimg = gtemp;
     }
 
@@ -931,10 +933,10 @@ CvSeq *cv::ocl::OclCascadeClassifier::oclHaarDetectObjects( oclMat &gimg, CvMemS
         std::vector<float> scalev;
         for(factor = 1.f;; factor *= scaleFactor)
         {
-            CvSize winSize = { cvRound(winSize0.width * factor), cvRound(winSize0.height * factor) };
+            CvSize winSize( cvRound(winSize0.width * factor), cvRound(winSize0.height * factor) );
             sz.width     = cvRound( gimg.cols / factor ) + 1;
             sz.height    = cvRound( gimg.rows / factor ) + 1;
-            CvSize sz1     = { sz.width - winSize0.width - 1,      sz.height - winSize0.height - 1 };
+            CvSize sz1( sz.width - winSize0.width - 1,      sz.height - winSize0.height - 1 );
 
             if( sz1.width <= 0 || sz1.height <= 0 )
                 break;
@@ -1158,9 +1160,7 @@ CvSeq *cv::ocl::OclCascadeClassifier::oclHaarDetectObjects( oclMat &gimg, CvMemS
                 cvRound(factor * winsize0.height) < gimg.rows - 10;
                 n_factors++, factor *= scaleFactor )
         {
-            CvSize winSize = { cvRound( winsize0.width * factor ),
-                               cvRound( winsize0.height * factor )
-                             };
+            CvSize winSize( cvRound( winsize0.width * factor ), cvRound( winsize0.height * factor ) );
             if( winSize.width < minSize.width || winSize.height < minSize.height )
             {
                 continue;
@@ -1320,7 +1320,7 @@ CvSeq *cv::ocl::OclCascadeClassifier::oclHaarDetectObjects( oclMat &gimg, CvMemS
 
     if( findBiggestObject && rectList.size() )
     {
-        CvAvgComp result_comp = {{0, 0, 0, 0}, 0};
+        CvAvgComp result_comp = {CvRect(), 0};
 
         for( size_t i = 0; i < rectList.size(); i++ )
         {
@@ -1495,3 +1495,4 @@ struct gpuHaarDetectObjects_ScaleCascade_Invoker
 
 }
 }
+#endif

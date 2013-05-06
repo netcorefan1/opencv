@@ -47,28 +47,28 @@ using namespace cv::gpu;
 
 #if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
 
-void cv::gpu::meanStdDev(const GpuMat&, Scalar&, Scalar&) { throw_nogpu(); }
-void cv::gpu::meanStdDev(const GpuMat&, Scalar&, Scalar&, GpuMat&) { throw_nogpu(); }
-double cv::gpu::norm(const GpuMat&, int) { throw_nogpu(); return 0.0; }
-double cv::gpu::norm(const GpuMat&, int, GpuMat&) { throw_nogpu(); return 0.0; }
-double cv::gpu::norm(const GpuMat&, int, const GpuMat&, GpuMat&) { throw_nogpu(); return 0.0; }
-double cv::gpu::norm(const GpuMat&, const GpuMat&, int) { throw_nogpu(); return 0.0; }
-Scalar cv::gpu::sum(const GpuMat&) { throw_nogpu(); return Scalar(); }
-Scalar cv::gpu::sum(const GpuMat&, GpuMat&) { throw_nogpu(); return Scalar(); }
-Scalar cv::gpu::sum(const GpuMat&, const GpuMat&, GpuMat&) { throw_nogpu(); return Scalar(); }
-Scalar cv::gpu::absSum(const GpuMat&) { throw_nogpu(); return Scalar(); }
-Scalar cv::gpu::absSum(const GpuMat&, GpuMat&) { throw_nogpu(); return Scalar(); }
-Scalar cv::gpu::absSum(const GpuMat&, const GpuMat&, GpuMat&) { throw_nogpu(); return Scalar(); }
-Scalar cv::gpu::sqrSum(const GpuMat&) { throw_nogpu(); return Scalar(); }
-Scalar cv::gpu::sqrSum(const GpuMat&, GpuMat&) { throw_nogpu(); return Scalar(); }
-Scalar cv::gpu::sqrSum(const GpuMat&, const GpuMat&, GpuMat&) { throw_nogpu(); return Scalar(); }
-void cv::gpu::minMax(const GpuMat&, double*, double*, const GpuMat&) { throw_nogpu(); }
-void cv::gpu::minMax(const GpuMat&, double*, double*, const GpuMat&, GpuMat&) { throw_nogpu(); }
-void cv::gpu::minMaxLoc(const GpuMat&, double*, double*, Point*, Point*, const GpuMat&) { throw_nogpu(); }
-void cv::gpu::minMaxLoc(const GpuMat&, double*, double*, Point*, Point*, const GpuMat&, GpuMat&, GpuMat&) { throw_nogpu(); }
-int cv::gpu::countNonZero(const GpuMat&) { throw_nogpu(); return 0; }
-int cv::gpu::countNonZero(const GpuMat&, GpuMat&) { throw_nogpu(); return 0; }
-void cv::gpu::reduce(const GpuMat&, GpuMat&, int, int, int, Stream&) { throw_nogpu(); }
+void cv::gpu::meanStdDev(const GpuMat&, Scalar&, Scalar&) { throw_no_cuda(); }
+void cv::gpu::meanStdDev(const GpuMat&, Scalar&, Scalar&, GpuMat&) { throw_no_cuda(); }
+double cv::gpu::norm(const GpuMat&, int) { throw_no_cuda(); return 0.0; }
+double cv::gpu::norm(const GpuMat&, int, GpuMat&) { throw_no_cuda(); return 0.0; }
+double cv::gpu::norm(const GpuMat&, int, const GpuMat&, GpuMat&) { throw_no_cuda(); return 0.0; }
+double cv::gpu::norm(const GpuMat&, const GpuMat&, int) { throw_no_cuda(); return 0.0; }
+Scalar cv::gpu::sum(const GpuMat&) { throw_no_cuda(); return Scalar(); }
+Scalar cv::gpu::sum(const GpuMat&, GpuMat&) { throw_no_cuda(); return Scalar(); }
+Scalar cv::gpu::sum(const GpuMat&, const GpuMat&, GpuMat&) { throw_no_cuda(); return Scalar(); }
+Scalar cv::gpu::absSum(const GpuMat&) { throw_no_cuda(); return Scalar(); }
+Scalar cv::gpu::absSum(const GpuMat&, GpuMat&) { throw_no_cuda(); return Scalar(); }
+Scalar cv::gpu::absSum(const GpuMat&, const GpuMat&, GpuMat&) { throw_no_cuda(); return Scalar(); }
+Scalar cv::gpu::sqrSum(const GpuMat&) { throw_no_cuda(); return Scalar(); }
+Scalar cv::gpu::sqrSum(const GpuMat&, GpuMat&) { throw_no_cuda(); return Scalar(); }
+Scalar cv::gpu::sqrSum(const GpuMat&, const GpuMat&, GpuMat&) { throw_no_cuda(); return Scalar(); }
+void cv::gpu::minMax(const GpuMat&, double*, double*, const GpuMat&) { throw_no_cuda(); }
+void cv::gpu::minMax(const GpuMat&, double*, double*, const GpuMat&, GpuMat&) { throw_no_cuda(); }
+void cv::gpu::minMaxLoc(const GpuMat&, double*, double*, Point*, Point*, const GpuMat&) { throw_no_cuda(); }
+void cv::gpu::minMaxLoc(const GpuMat&, double*, double*, Point*, Point*, const GpuMat&, GpuMat&, GpuMat&) { throw_no_cuda(); }
+int cv::gpu::countNonZero(const GpuMat&) { throw_no_cuda(); return 0; }
+int cv::gpu::countNonZero(const GpuMat&, GpuMat&) { throw_no_cuda(); return 0; }
+void cv::gpu::reduce(const GpuMat&, GpuMat&, int, int, int, Stream&) { throw_no_cuda(); }
 
 #else
 #include "opencv2/core/utility.hpp"
@@ -124,7 +124,7 @@ void cv::gpu::meanStdDev(const GpuMat& src, Scalar& mean, Scalar& stddev, GpuMat
     CV_Assert(src.type() == CV_8UC1);
 
     if (!deviceSupports(FEATURE_SET_COMPUTE_13))
-        CV_Error(CV_StsNotImplemented, "Not sufficient compute capebility");
+        CV_Error(cv::Error::StsNotImplemented, "Not sufficient compute capebility");
 
     NppiSize sz;
     sz.width  = src.cols;
@@ -259,7 +259,7 @@ Scalar cv::gpu::sum(const GpuMat& src, const GpuMat& mask, GpuMat& buf)
     if (src.depth() == CV_64F)
     {
         if (!deviceSupports(NATIVE_DOUBLE))
-            CV_Error(CV_StsUnsupportedFormat, "The device doesn't support double");
+            CV_Error(cv::Error::StsUnsupportedFormat, "The device doesn't support double");
     }
 
     Size buf_size;
@@ -305,7 +305,7 @@ Scalar cv::gpu::absSum(const GpuMat& src, const GpuMat& mask, GpuMat& buf)
     if (src.depth() == CV_64F)
     {
         if (!deviceSupports(NATIVE_DOUBLE))
-            CV_Error(CV_StsUnsupportedFormat, "The device doesn't support double");
+            CV_Error(cv::Error::StsUnsupportedFormat, "The device doesn't support double");
     }
 
     Size buf_size;
@@ -351,7 +351,7 @@ Scalar cv::gpu::sqrSum(const GpuMat& src, const GpuMat& mask, GpuMat& buf)
     if (src.depth() == CV_64F)
     {
         if (!deviceSupports(NATIVE_DOUBLE))
-            CV_Error(CV_StsUnsupportedFormat, "The device doesn't support double");
+            CV_Error(cv::Error::StsUnsupportedFormat, "The device doesn't support double");
     }
 
     Size buf_size;
@@ -404,7 +404,7 @@ void cv::gpu::minMax(const GpuMat& src, double* minVal, double* maxVal, const Gp
     if (src.depth() == CV_64F)
     {
         if (!deviceSupports(NATIVE_DOUBLE))
-            CV_Error(CV_StsUnsupportedFormat, "The device doesn't support double");
+            CV_Error(cv::Error::StsUnsupportedFormat, "The device doesn't support double");
     }
 
     Size buf_size;
@@ -455,7 +455,7 @@ void cv::gpu::minMaxLoc(const GpuMat& src, double* minVal, double* maxVal, Point
     if (src.depth() == CV_64F)
     {
         if (!deviceSupports(NATIVE_DOUBLE))
-            CV_Error(CV_StsUnsupportedFormat, "The device doesn't support double");
+            CV_Error(cv::Error::StsUnsupportedFormat, "The device doesn't support double");
     }
 
     Size valbuf_size, locbuf_size;
@@ -506,7 +506,7 @@ int cv::gpu::countNonZero(const GpuMat& src, GpuMat& buf)
     if (src.depth() == CV_64F)
     {
         if (!deviceSupports(NATIVE_DOUBLE))
-            CV_Error(CV_StsUnsupportedFormat, "The device doesn't support double");
+            CV_Error(cv::Error::StsUnsupportedFormat, "The device doesn't support double");
     }
 
     Size buf_size;
@@ -534,7 +534,7 @@ void cv::gpu::reduce(const GpuMat& src, GpuMat& dst, int dim, int reduceOp, int 
 {
     CV_Assert( src.channels() <= 4 );
     CV_Assert( dim == 0 || dim == 1 );
-    CV_Assert( reduceOp == CV_REDUCE_SUM || reduceOp == CV_REDUCE_AVG || reduceOp == CV_REDUCE_MAX || reduceOp == CV_REDUCE_MIN );
+    CV_Assert( reduceOp == REDUCE_SUM || reduceOp == REDUCE_AVG || reduceOp == REDUCE_MAX || reduceOp == REDUCE_MIN );
 
     if (dtype < 0)
         dtype = src.depth();
@@ -614,7 +614,7 @@ void cv::gpu::reduce(const GpuMat& src, GpuMat& dst, int dim, int reduceOp, int 
         const func_t func = funcs[src.depth()][dst.depth()];
 
         if (!func)
-            CV_Error(CV_StsUnsupportedFormat, "Unsupported combination of input and output array formats");
+            CV_Error(cv::Error::StsUnsupportedFormat, "Unsupported combination of input and output array formats");
 
         func(src.reshape(1), dst.data, reduceOp, StreamAccessor::getStream(stream));
     }
@@ -691,7 +691,7 @@ void cv::gpu::reduce(const GpuMat& src, GpuMat& dst, int dim, int reduceOp, int 
         const func_t func = funcs[src.depth()][dst.depth()];
 
         if (!func)
-            CV_Error(CV_StsUnsupportedFormat, "Unsupported combination of input and output array formats");
+            CV_Error(cv::Error::StsUnsupportedFormat, "Unsupported combination of input and output array formats");
 
         func(src, dst.data, src.channels(), reduceOp, StreamAccessor::getStream(stream));
     }

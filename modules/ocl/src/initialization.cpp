@@ -163,7 +163,7 @@ namespace cv
                 {
                     releaseResources();
                     delete this;
-            }
+                }
             }
 
             Impl* copy()
@@ -260,9 +260,8 @@ namespace cv
 
         int setDevMemType(DevMemRW rw_type, DevMemType mem_type)
         {
-            if( (mem_type == DEVICE_MEM_PM && Context::getContext()->impl->unified_memory == 0) ||
-                 mem_type == DEVICE_MEM_UHP ||
-                 mem_type == DEVICE_MEM_CHP )
+            if( (mem_type == DEVICE_MEM_PM && 
+                 Context::getContext()->impl->unified_memory == 0) )
                 return -1;
             gDeviceMemRW = rw_type;
             gDeviceMemType = mem_type;
@@ -351,6 +350,11 @@ namespace cv
             return &(Context::getContext()->impl->clCmdQueue);
         }
 
+        void finish()
+        {
+            clFinish(Context::getContext()->impl->clCmdQueue);
+        }
+
         void queryDeviceInfo(DEVICE_INFO info_type, void* info)
         {
             static Info::Impl* impl = Context::getContext()->impl;
@@ -358,6 +362,13 @@ namespace cv
             {
             case WAVEFRONT_SIZE:
                 {
+                    bool is_cpu = false;
+                    queryDeviceInfo(IS_CPU_DEVICE, &is_cpu);
+                    if(is_cpu)
+                    {
+                        *(int*)info = 1;
+                        return;
+                    }
 #ifdef CL_DEVICE_WAVEFRONT_WIDTH_AMD
                     try
                     {
@@ -389,6 +400,15 @@ namespace cv
 
                 }
                 break;
+            case IS_CPU_DEVICE:
+                {
+                    cl_device_type devicetype;
+                    openCLSafeCall(clGetDeviceInfo(impl->devices[impl->devnum],
+                                    CL_DEVICE_TYPE, sizeof(cl_device_type),
+                                    &devicetype, NULL));
+                    *(bool*)info = (devicetype == CVCL_DEVICE_TYPE_CPU);
+                }
+                break;
             default:
                 CV_Error(-1, "Invalid device info type");
                 break;
@@ -418,11 +438,17 @@ namespace cv
         }
 
         void openCLMallocPitchEx(Context *clCxt, void **dev_ptr, size_t *pitch,
-                               size_t widthInBytes, size_t height, DevMemRW rw_type, DevMemType mem_type)
+                                 size_t widthInBytes, size_t height, 
+                                 DevMemRW rw_type, DevMemType mem_type, void* hptr)
         {
             cl_int status;
-            *dev_ptr = clCreateBuffer(clCxt->impl->oclcontext, gDevMemRWValueMap[rw_type]|gDevMemTypeValueMap[mem_type],
-                                      widthInBytes * height, 0, &status);
+            if(hptr && (mem_type==DEVICE_MEM_UHP || mem_type==DEVICE_MEM_CHP))
+                *dev_ptr = clCreateBuffer(clCxt->impl->oclcontext, 
+                                          gDevMemRWValueMap[rw_type]|gDevMemTypeValueMap[mem_type], 
+                                          widthInBytes * height, hptr, &status);
+            else
+                *dev_ptr = clCreateBuffer(clCxt->impl->oclcontext, gDevMemRWValueMap[rw_type]|gDevMemTypeValueMap[mem_type],
+                                          widthInBytes * height, 0, &status);
             openCLVerifyCall(status);
             *pitch = widthInBytes;
         }
@@ -500,7 +526,7 @@ namespace cv
             char* binary = (char*)malloc(binarySize);
             if(binary == NULL)
             {
-                CV_Error(CV_StsNoMem, "Failed to allocate host memory.");
+                CV_Error(Error::StsNoMem, "Failed to allocate host memory.");
             }
             openCLSafeCall(clGetProgramInfo(program,
                                     CL_PROGRAM_BINARIES,
@@ -709,7 +735,7 @@ namespace cv
             clReleaseEvent(event);
 #endif
 
-            clFinish(clCxt->impl->clCmdQueue);
+            clFlush(clCxt->impl->clCmdQueue);
             openCLSafeCall(clReleaseKernel(kernel));
         }
 
@@ -905,16 +931,18 @@ namespace cv
         std::auto_ptr<Context> Context::clCxt;
         int Context::val = 0;
         static Mutex cs;
-        Context *Context::getContext()
+        static volatile int context_tear_down = 0;
+        Context* Context::getContext()
         {
             if(*((volatile int*)&val) != 1)
             {
                 AutoLock al(cs);
                 if(*((volatile int*)&val) != 1)
                 {
+                    if (context_tear_down)
+                        return clCxt.get();
                     if( 0 == clCxt.get())
                     clCxt.reset(new Context);
-
                     std::vector<Info> oclinfo;
                     CV_Assert(getDevice(oclinfo, CVCL_DEVICE_TYPE_ALL) > 0);
                     oclinfo[0].impl->setDevice(0, 0, 0);
@@ -1042,9 +1070,14 @@ BOOL WINAPI DllMain( HINSTANCE, DWORD  fdwReason, LPVOID )
     {
         // application hangs if call clReleaseCommandQueue here, so release context only
         // without context release application hangs as well
-        cl_context ctx = (cl_context)getoclContext();
-        if(ctx)
-            openCLSafeCall(clReleaseContext(ctx));
+        context_tear_down = 1;
+        Context* cv_ctx = Context::getContext();
+        if(cv_ctx)
+        {
+            cl_context ctx = cv_ctx->impl->oclcontext;
+            if(ctx)
+                openCLSafeCall(clReleaseContext(ctx));
+        }
     }
     return TRUE;
 }

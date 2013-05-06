@@ -46,9 +46,6 @@
 #include "opencv2/core.hpp"
 #include "opencv2/flann/miniflann.hpp"
 
-#ifdef __cplusplus
-#include <limits>
-
 namespace cv
 {
 
@@ -1522,8 +1519,4 @@ protected:
 
 } /* namespace cv */
 
-#endif /* __cplusplus */
-
 #endif
-
-/* End of file. */

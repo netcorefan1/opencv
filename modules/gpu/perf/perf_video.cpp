@@ -41,6 +41,7 @@
 //M*/
 
 #include "perf_precomp.hpp"
+#include "opencv2/legacy.hpp"
 
 using namespace std;
 using namespace testing;
@@ -434,6 +435,9 @@ PERF_TEST_P(ImagePair, Video_OpticalFlowDual_TVL1,
         cv::Mat flow;
 
         cv::Ptr<cv::DenseOpticalFlow> alg = cv::createOptFlow_DualTVL1();
+        alg->set("medianFiltering", 1);
+        alg->set("innerIterations", 1);
+        alg->set("outerIterations", 300);
 
         TEST_CYCLE() alg->calc(frame0, frame1, flow);
 
@@ -596,8 +600,8 @@ PERF_TEST_P(Video, Video_FGDStatModel,
             stopTimer();
         }
 
-        const cv::Mat background = model->background;
-        const cv::Mat foreground = model->foreground;
+        const cv::Mat background = cv::cvarrToMat(model->background);
+        const cv::Mat foreground = cv::cvarrToMat(model->foreground);
 
         CPU_SANITY_CHECK(background);
         CPU_SANITY_CHECK(foreground);
@@ -1007,7 +1011,7 @@ PERF_TEST_P(Video_Cn_MaxFeatures, Video_GMG,
 
 #if defined(HAVE_NVCUVID) && BUILD_WITH_VIDEO_INPUT_SUPPORT
 
-PERF_TEST_P(Video, Video_VideoReader, Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"))
+PERF_TEST_P(Video, DISABLED_Video_VideoReader, Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"))
 {
     declare.time(20);
 
@@ -1044,7 +1048,7 @@ PERF_TEST_P(Video, Video_VideoReader, Values("gpu/video/768x576.avi", "gpu/video
 
 #if defined(HAVE_NVCUVID) && defined(WIN32)
 
-PERF_TEST_P(Video, Video_VideoWriter, Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"))
+PERF_TEST_P(Video, DISABLED_Video_VideoWriter, Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"))
 {
     declare.time(30);
 

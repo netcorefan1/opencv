@@ -66,7 +66,7 @@ static inline int getLabel(int quantized)
     case 64:  return 6;
     case 128: return 7;
     default:
-      CV_Error(CV_StsBadArg, "Invalid value of quantized parameter");
+      CV_Error(Error::StsBadArg, "Invalid value of quantized parameter");
       return -1; //avoid warning
   }
 }
@@ -175,7 +175,7 @@ void QuantizedPyramid::selectScatteredFeatures(const std::vector<Candidate>& can
                                                size_t num_features, float distance)
 {
   features.clear();
-  float distance_sq = CV_SQR(distance);
+  float distance_sq = distance * distance;
   int i = 0;
   while (features.size() < num_features)
   {
@@ -186,7 +186,7 @@ void QuantizedPyramid::selectScatteredFeatures(const std::vector<Candidate>& can
     for (int j = 0; (j < (int)features.size()) && keep; ++j)
     {
       Feature f = features[j];
-      keep = CV_SQR(c.f.x - f.x) + CV_SQR(c.f.y - f.y) >= distance_sq;
+      keep = (c.f.x - f.x)*(c.f.x - f.x) + (c.f.y - f.y)*(c.f.y - f.y) >= distance_sq;
     }
     if (keep)
       features.push_back(c.f);
@@ -196,7 +196,7 @@ void QuantizedPyramid::selectScatteredFeatures(const std::vector<Candidate>& can
       // Start back at beginning, and relax required distance
       i = 0;
       distance -= 1.0f;
-      distance_sq = CV_SQR(distance);
+      distance_sq = distance * distance;
     }
   }
 }
@@ -306,9 +306,9 @@ static void quantizedOrientations(const Mat& src, Mat& magnitude,
     for (int i = 0; i < length0; i += 3)
     {
       // Use the gradient orientation of the channel whose magnitude is largest
-      int mag1 = CV_SQR(ptrx[i]) + CV_SQR(ptry[i]);
-      int mag2 = CV_SQR(ptrx[i + 1]) + CV_SQR(ptry[i + 1]);
-      int mag3 = CV_SQR(ptrx[i + 2]) + CV_SQR(ptry[i + 2]);
+      int mag1 = ptrx[i+0] * ptrx[i + 0] + ptry[i + 0] * ptry[i + 0];
+      int mag2 = ptrx[i+1] * ptrx[i + 1] + ptry[i + 1] * ptry[i + 1];
+      int mag3 = ptrx[i+2] * ptrx[i + 2] + ptry[i + 2] * ptry[i + 2];
 
       if (mag1 >= mag2 && mag1 >= mag3)
       {
@@ -339,7 +339,7 @@ static void quantizedOrientations(const Mat& src, Mat& magnitude,
 
   // Calculate the final gradient orientations
   phase(sobel_dx, sobel_dy, sobel_ag, true);
-  hysteresisGradient(magnitude, angle, sobel_ag, CV_SQR(threshold));
+  hysteresisGradient(magnitude, angle, sobel_ag, threshold * threshold);
 }
 
 void hysteresisGradient(Mat& magnitude, Mat& quantized_angle,
@@ -483,7 +483,7 @@ void ColorGradientPyramid::pyrDown()
   if (!mask.empty())
   {
     Mat next_mask;
-    resize(mask, next_mask, size, 0.0, 0.0, CV_INTER_NN);
+    resize(mask, next_mask, size, 0.0, 0.0, INTER_NEAREST);
     mask = next_mask;
   }
 
@@ -509,7 +509,7 @@ bool ColorGradientPyramid::extractTemplate(Template& templ) const
   // Create sorted list of all pixels with magnitude greater than a threshold
   std::vector<Candidate> candidates;
   bool no_mask = local_mask.empty();
-  float threshold_sq = CV_SQR(strong_threshold);
+  float threshold_sq = strong_threshold*strong_threshold;
   for (int r = 0; r < magnitude.rows; ++r)
   {
     const uchar* angle_r = angle.ptr<uchar>(r);
@@ -635,17 +635,11 @@ static void quantizedNormals(const Mat& src, Mat& dst, int distance_threshold,
 {
   dst = Mat::zeros(src.size(), CV_8U);
 
-  IplImage src_ipl = src;
-  IplImage* ap_depth_data = &src_ipl;
-  IplImage dst_ipl = dst;
-  IplImage* dst_ipl_ptr = &dst_ipl;
-  IplImage** m_dep = &dst_ipl_ptr;
+  const unsigned short * lp_depth   = src.ptr<ushort>();
+  unsigned char  * lp_normals = dst.ptr<uchar>();
 
-  unsigned short * lp_depth   = (unsigned short *)ap_depth_data->imageData;
-  unsigned char  * lp_normals = (unsigned char *)m_dep[0]->imageData;
-
-  const int l_W = ap_depth_data->width;
-  const int l_H = ap_depth_data->height;
+  const int l_W = src.cols;
+  const int l_H = src.rows;
 
   const int l_r = 5; // used to be 7
   const int l_offset0 = -l_r - l_r * l_W;
@@ -662,7 +656,7 @@ static void quantizedNormals(const Mat& src, Mat& dst, int distance_threshold,
 
   for (int l_y = l_r; l_y < l_H - l_r - 1; ++l_y)
   {
-    unsigned short * lp_line = lp_depth + (l_y * l_W + l_r);
+    const unsigned short * lp_line = lp_depth + (l_y * l_W + l_r);
     unsigned char * lp_norm = lp_normals + (l_y * l_W + l_r);
 
     for (int l_x = l_r; l_x < l_W - l_r - 1; ++l_x)
@@ -725,7 +719,7 @@ static void quantizedNormals(const Mat& src, Mat& dst, int distance_threshold,
       ++lp_norm;
     }
   }
-  cvSmooth(m_dep[0], m_dep[0], CV_MEDIAN, 5, 5);
+  medianBlur(dst, dst, 5);
 }
 
 class DepthNormalPyramid : public QuantizedPyramid
@@ -772,12 +766,12 @@ void DepthNormalPyramid::pyrDown()
   // In this case, NN-downsample the quantized image
   Mat next_normal;
   Size size(normal.cols / 2, normal.rows / 2);
-  resize(normal, next_normal, size, 0.0, 0.0, CV_INTER_NN);
+  resize(normal, next_normal, size, 0.0, 0.0, INTER_NEAREST);
   normal = next_normal;
   if (!mask.empty())
   {
     Mat next_mask;
-    resize(mask, next_mask, size, 0.0, 0.0, CV_INTER_NN);
+    resize(mask, next_mask, size, 0.0, 0.0, INTER_NEAREST);
     mask = next_mask;
   }
 }
@@ -805,7 +799,7 @@ bool DepthNormalPyramid::extractTemplate(Template& templ) const
     temp.setTo(1 << i, local_mask);
     bitwise_and(temp, normal, temp);
     // temp is now non-zero at pixels in the mask with quantized orientation i
-    distanceTransform(temp, distances[i], CV_DIST_C, 3);
+    distanceTransform(temp, distances[i], DIST_C, 3);
   }
 
   // Count how many features taken for each label
@@ -1404,17 +1398,17 @@ void Detector::match(const std::vector<Mat>& sources, float threshold, std::vect
   if (quantized_images.needed())
     quantized_images.create(1, static_cast<int>(pyramid_levels * modalities.size()), CV_8U);
 
-  assert(sources.size() == modalities.size());
+  CV_Assert(sources.size() == modalities.size());
   // Initialize each modality with our sources
   std::vector< Ptr<QuantizedPyramid> > quantizers;
   for (int i = 0; i < (int)modalities.size(); ++i){
     Mat mask, source;
     source = sources[i];
     if(!masks.empty()){
-      assert(masks.size() == modalities.size());
+      CV_Assert(masks.size() == modalities.size());
       mask = masks[i];
     }
-    assert(mask.empty() || mask.size() == source.size());
+    CV_Assert(mask.empty() || mask.size() == source.size());
     quantizers.push_back(modalities[i]->process(source, mask));
   }
   // pyramid level -> modality -> quantization

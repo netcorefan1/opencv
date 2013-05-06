@@ -43,21 +43,22 @@
 #include "precomp.hpp"
 #include <vector>
 #include <iostream>
+#include "opencv2/objdetect/objdetect_c.h"
 
 using namespace cv;
 using namespace cv::gpu;
 
 #if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
 
-cv::gpu::CascadeClassifier_GPU::CascadeClassifier_GPU()               { throw_nogpu(); }
-cv::gpu::CascadeClassifier_GPU::CascadeClassifier_GPU(const String&)  { throw_nogpu(); }
-cv::gpu::CascadeClassifier_GPU::~CascadeClassifier_GPU()              { throw_nogpu(); }
-bool cv::gpu::CascadeClassifier_GPU::empty() const                    { throw_nogpu(); return true; }
-bool cv::gpu::CascadeClassifier_GPU::load(const String&)              { throw_nogpu(); return true; }
-Size cv::gpu::CascadeClassifier_GPU::getClassifierSize() const        { throw_nogpu(); return Size();}
-void cv::gpu::CascadeClassifier_GPU::release()                        { throw_nogpu(); }
-int cv::gpu::CascadeClassifier_GPU::detectMultiScale( const GpuMat&, GpuMat&, double, int, Size)       {throw_nogpu(); return -1;}
-int cv::gpu::CascadeClassifier_GPU::detectMultiScale( const GpuMat&, GpuMat&, Size, Size, double, int) {throw_nogpu(); return -1;}
+cv::gpu::CascadeClassifier_GPU::CascadeClassifier_GPU()               { throw_no_cuda(); }
+cv::gpu::CascadeClassifier_GPU::CascadeClassifier_GPU(const String&)  { throw_no_cuda(); }
+cv::gpu::CascadeClassifier_GPU::~CascadeClassifier_GPU()              { throw_no_cuda(); }
+bool cv::gpu::CascadeClassifier_GPU::empty() const                    { throw_no_cuda(); return true; }
+bool cv::gpu::CascadeClassifier_GPU::load(const String&)              { throw_no_cuda(); return true; }
+Size cv::gpu::CascadeClassifier_GPU::getClassifierSize() const        { throw_no_cuda(); return Size();}
+void cv::gpu::CascadeClassifier_GPU::release()                        { throw_no_cuda(); }
+int cv::gpu::CascadeClassifier_GPU::detectMultiScale( const GpuMat&, GpuMat&, double, int, Size)       {throw_no_cuda(); return -1;}
+int cv::gpu::CascadeClassifier_GPU::detectMultiScale( const GpuMat&, GpuMat&, Size, Size, double, int) {throw_no_cuda(); return -1;}
 
 #else
 
@@ -169,7 +170,7 @@ public:
     cv::Size getClassifierCvSize() const { return cv::Size(haar.ClassifierSize.width, haar.ClassifierSize.height); }
 
 private:
-    static void NCVDebugOutputHandler(const String &msg) { CV_Error(CV_GpuApiCallError, msg.c_str()); }
+    static void NCVDebugOutputHandler(const String &msg) { CV_Error(cv::Error::GpuApiCallError, msg.c_str()); }
 
     NCVStatus load(const String& classifierFile)
     {
@@ -340,7 +341,7 @@ struct PyrLavel
     cv::Size sWindow;
 };
 
-namespace cv { namespace gpu { namespace device
+namespace cv { namespace gpu { namespace cudev
 {
     namespace lbp
     {
@@ -425,7 +426,7 @@ public:
                 GpuMat buff = integralBuffer;
 
                 // generate integral for scale
-                gpu::resize(image, src, level.sFrame, 0, 0, CV_INTER_LINEAR);
+                gpu::resize(image, src, level.sFrame, 0, 0, cv::INTER_LINEAR);
                 gpu::integralBuffered(src, sint, buff);
 
                 // calculate job
@@ -441,7 +442,7 @@ public:
                 acc += level.sFrame.width + 1;
             }
 
-            device::lbp::classifyPyramid(image.cols, image.rows, NxM.width - 1, NxM.height - 1, iniScale, scaleFactor, total, stage_mat, stage_mat.cols / sizeof(Stage), nodes_mat,
+            cudev::lbp::classifyPyramid(image.cols, image.rows, NxM.width - 1, NxM.height - 1, iniScale, scaleFactor, total, stage_mat, stage_mat.cols / sizeof(Stage), nodes_mat,
                 leaves_mat, subsets_mat, features_mat, subsetSize, candidates, dclassified.ptr<unsigned int>(), integral);
         }
 
@@ -449,7 +450,7 @@ public:
             return 0;
 
         cudaSafeCall( cudaMemcpy(&classified, dclassified.ptr(), sizeof(int), cudaMemcpyDeviceToHost) );
-        device::lbp::connectedConmonents(candidates, classified, objects, groupThreshold, grouping_eps, dclassified.ptr<unsigned int>());
+        cudev::lbp::connectedConmonents(candidates, classified, objects, groupThreshold, grouping_eps, dclassified.ptr<unsigned int>());
 
         cudaSafeCall( cudaMemcpy(&classified, dclassified.ptr(), sizeof(int), cudaMemcpyDeviceToHost) );
         cudaSafeCall( cudaDeviceSynchronize() );

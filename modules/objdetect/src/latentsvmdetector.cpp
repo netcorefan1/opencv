@@ -1,4 +1,6 @@
 #include "precomp.hpp"
+#include "opencv2/imgproc/imgproc_c.h"
+#include "opencv2/objdetect/objdetect_c.h"
 #include "_lsvmparser.h"
 #include "_lsvm_matching.h"
 
@@ -124,9 +126,9 @@ CvSeq* cvLatentSvmDetectObjects(IplImage* image,
 
     for (int i = 0; i < numBoxesOut; i++)
     {
-        CvObjectDetection detection = {{0, 0, 0, 0}, 0};
+        CvObjectDetection detection = {CvRect(), 0};
         detection.score = scoreOut[i];
-        CvRect bounding_box = {0, 0, 0, 0};
+        CvRect bounding_box;
         bounding_box.x = pointsOut[i].x;
         bounding_box.y = pointsOut[i].y;
         bounding_box.width = oppPointsOut[i].x - pointsOut[i].x;

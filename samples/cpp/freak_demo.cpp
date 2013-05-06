@@ -43,7 +43,6 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/nonfree.hpp>
-#include <opencv2/legacy.hpp>
 
 using namespace cv;
 
@@ -66,14 +65,14 @@ int main( int argc, char** argv ) {
     }
 
     // Load images
-    Mat imgA = imread(argv[1], CV_LOAD_IMAGE_GRAYSCALE );
+    Mat imgA = imread(argv[1], IMREAD_GRAYSCALE );
     if( !imgA.data ) {
         std::cout<< " --(!) Error reading image " << argv[1] << std::endl;
         return -1;
     }
 
-    Mat imgB = imread(argv[2], CV_LOAD_IMAGE_GRAYSCALE );
-    if( !imgA.data ) {
+    Mat imgB = imread(argv[2], IMREAD_GRAYSCALE );
+    if( !imgB.data ) {
         std::cout << " --(!) Error reading image " << argv[2] << std::endl;
         return -1;
     }
@@ -95,9 +94,9 @@ int main( int argc, char** argv ) {
 
     // MATCHER
     // The standard Hamming distance can be used such as
-    // BruteForceMatcher<Hamming> matcher;
+    // BFMatcher matcher(NORM_HAMMING);
     // or the proposed cascade of hamming distance using SSSE3
-    BruteForceMatcher<Hamming> matcher;
+    BFMatcher matcher(NORM_HAMMING);
 
     // detect
     double t = (double)getTickCount();
@@ -123,7 +122,7 @@ int main( int argc, char** argv ) {
     Mat imgMatch;
     drawMatches(imgA, keypointsA, imgB, keypointsB, matches, imgMatch);
 
-    namedWindow("matches", CV_WINDOW_KEEPRATIO);
+    namedWindow("matches", WINDOW_KEEPRATIO);
     imshow("matches", imgMatch);
     waitKey(0);
 }
