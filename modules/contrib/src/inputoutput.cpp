@@ -1,3 +1,4 @@
+#if !((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
 
 #include "opencv2/contrib.hpp"
 
@@ -146,3 +147,5 @@ namespace cv
     }
 
 }
+
+#endif

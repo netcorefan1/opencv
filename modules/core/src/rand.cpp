@@ -62,6 +62,12 @@
     #include "emmintrin.h"
 #endif
 
+#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+#define TlsSetValue FlsSetValue
+#define TLS_OUT_OF_INDEXES FLS_OUT_OF_INDEXES
+#define TlsGetValue FlsGetValue
+#endif
+
 namespace cv
 {
 
@@ -743,7 +749,11 @@ RNG& theRNG()
 {
     if( tlsRNGKey == TLS_OUT_OF_INDEXES )
     {
+#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+        tlsRNGKey = FlsAlloc(0);
+#else
         tlsRNGKey = TlsAlloc();
+#endif
         CV_Assert(tlsRNGKey != TLS_OUT_OF_INDEXES);
     }
     RNG* rng = (RNG*)TlsGetValue( tlsRNGKey );

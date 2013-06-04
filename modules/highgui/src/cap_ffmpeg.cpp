@@ -92,7 +92,13 @@ private:
         #endif
             ".dll";
 
+#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+        //TODO: Implement loading of FFMPEG on Windows Store App
+        icvFFOpenCV = 0;
+#else
         icvFFOpenCV = LoadLibrary( module_name );
+#endif
+
         if( icvFFOpenCV )
         {
             icvCreateFileCapture_FFMPEG_p =

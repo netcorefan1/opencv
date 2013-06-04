@@ -41,7 +41,7 @@
 
 #include "precomp.hpp"
 
-#if defined WIN32 || defined _WIN32
+#if (defined WIN32 || defined _WIN32) && (! ( (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP ) )
 
 #define COMPILE_MULTIMON_STUBS // Required for multi-monitor support
 #ifndef _MULTIMON_USE_SECURE_CRT

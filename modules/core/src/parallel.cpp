@@ -69,7 +69,7 @@
     #define HAVE_GCD
 #endif
 
-#if defined _MSC_VER && _MSC_VER >= 1600
+#if defined _MSC_VER && _MSC_VER >= 1600 && !((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
     #define HAVE_CONCURRENCY
 #endif
 
@@ -443,7 +443,8 @@ static inline int getNumberOfCPUsImpl()
 
 int cv::getNumberOfCPUs(void)
 {
-#if defined WIN32 || defined _WIN32
+   //TODO: implement getNumberOfCPUs for Windows Store App Style C++ code
+#if (defined WIN32 || defined _WIN32) && !((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
     SYSTEM_INFO sysinfo;
     GetSystemInfo( &sysinfo );
 

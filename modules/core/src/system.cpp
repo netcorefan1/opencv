@@ -108,6 +108,10 @@
 # include <android/log.h>
 #endif
 
+#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+#include <synchapi.h>
+#endif
+
 namespace cv
 {
 
@@ -371,6 +375,9 @@ String format( const char* fmt, ... )
 
 String tempfile( const char* suffix )
 {
+#if ( (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
+   return String();
+#else
     const char *temp_dir = getenv("OPENCV_TEMP_PATH");
     String fname;
 
@@ -423,6 +430,7 @@ String tempfile( const char* suffix )
             return fname + suffix;
     }
     return fname;
+#endif
 }
 
 static CvErrorCallback customErrorCallback = 0;
@@ -698,7 +706,11 @@ namespace cv
 
 struct Mutex::Impl
 {
+#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+    Impl() {  InitializeCriticalSectionEx(&cs, 0, 0); refcount = 1; }
+#else
     Impl() { InitializeCriticalSection(&cs); refcount = 1; }
+#endif
     ~Impl() { DeleteCriticalSection(&cs); }
 
     void lock() { EnterCriticalSection(&cs); }

@@ -388,7 +388,7 @@ int showRootFilterBoxes(IplImage *image,
         cvRectangle(image, points[i], oppositePoint,
                     color, thickness, line_type, shift);
     }
-#ifdef HAVE_OPENCV_HIGHGUI
+#if (defined HAVE_OPENCV_HIGHGUI) && (! ( (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP ))
     cv::imshow("Initial image", cv::cvarrToMat(image));
 #endif
     return LATENT_SVM_OK;
@@ -444,7 +444,7 @@ int showPartFilterBoxes(IplImage *image,
                         color, thickness, line_type, shift);
         }
     }
-#ifdef HAVE_OPENCV_HIGHGUI
+#if (defined HAVE_OPENCV_HIGHGUI) && (! ( (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP ))
     cv::imshow("Initial image", cv::cvarrToMat(image));
 #endif
     return LATENT_SVM_OK;
@@ -480,7 +480,7 @@ int showBoxes(IplImage *img,
         cvRectangle(img, points[i], oppositePoints[i],
                     color, thickness, line_type, shift);
     }
-#ifdef HAVE_OPENCV_HIGHGUI
+#if (defined HAVE_OPENCV_HIGHGUI) && (! ( (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP ))
     cv::imshow("Initial image", cv::cvarrToMat(img));
 #endif
     return LATENT_SVM_OK;

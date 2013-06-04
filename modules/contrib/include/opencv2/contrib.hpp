@@ -275,6 +275,7 @@ private:
 
 CV_EXPORTS void polyfit(const Mat& srcx, const Mat& srcy, Mat& dst, int order);
 
+#if !((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
 class CV_EXPORTS Directory
 {
     public:
@@ -282,6 +283,7 @@ class CV_EXPORTS Directory
         static std::vector<String> GetListFilesR ( const String& path, const String & exten = "*", bool addPath = true );
         static std::vector<String> GetListFolders( const String& path, const String & exten = "*", bool addPath = true );
 };
+#endif
 
 /*
  * Generation of a set of different colors by the following way:

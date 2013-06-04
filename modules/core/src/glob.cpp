@@ -51,7 +51,11 @@ namespace
 {
     struct dirent
     {
+#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
+        char d_name[260];
+#else
         const char* d_name;
+#endif
     };
 
     struct DIR
@@ -64,8 +68,14 @@ namespace
     DIR* opendir(const char* path)
     {
         DIR* dir = new DIR;
+
+#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
+        memset(dir->ent.d_name, 0, sizeof(char) * 260);
+        dir->handle = FindFirstFileEx( (LPCWSTR) (cv::String(path) + "\\*").c_str(), FindExInfoStandard, &dir->data, FindExSearchNameMatch, NULL, 0);
+#else
         dir->ent.d_name = 0;
         dir->handle = ::FindFirstFileA((cv::String(path) + "\\*").c_str(), &dir->data);
+#endif
         if(dir->handle == INVALID_HANDLE_VALUE)
         {
             /*closedir will do all cleanup*/
@@ -81,7 +91,11 @@ namespace
             if (::FindNextFile(dir->handle, &dir->data) != TRUE)
                 return 0;
         }
+#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
+        wcstombs( dir->ent.d_name, dir->data.cFileName, 260);
+#else
         dir->ent.d_name = dir->data.cFileName;
+#endif
         return &dir->ent;
     }
 
@@ -103,13 +117,27 @@ const char native_separator = '/';
 static bool isDir(const cv::String& path, DIR* dir)
 {
 #if defined WIN32 || defined _WIN32 || defined WINCE
-    DWORD attributes;
-    if (dir)
-        attributes = dir->data.dwFileAttributes;
-    else
-        attributes = ::GetFileAttributes(path.c_str());
 
-    return (attributes != INVALID_FILE_ATTRIBUTES) && ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0);
+   DWORD attributes;
+   if (dir)
+      attributes = dir->data.dwFileAttributes;
+   else
+   {
+#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
+      WIN32_FILE_ATTRIBUTE_DATA myInfo;
+      BOOL bOk = GetFileAttributesEx((LPCWSTR) path.c_str(), GetFileExInfoStandard, &myInfo);
+      if (!bOk)
+      {
+         return false;
+      }
+      attributes = myInfo.dwFileAttributes;
+#else
+      attributes = ::GetFileAttributes(path.c_str());
+#endif
+   
+   }
+   return (attributes != INVALID_FILE_ATTRIBUTES) && ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0);
+
 #else
     (void)dir;
     struct stat stat_buf;

@@ -111,11 +111,11 @@ elseif(APPLE)
   endif()
 endif()
 
-if(WIN32 AND NOT ARM)
+if(WIN32 AND NOT ARM AND NOT NETFX_CORE)
   list(APPEND highgui_srcs src/cap_cmu.cpp)
 endif()
 
-if (WIN32 AND HAVE_DSHOW)
+if (WIN32 AND HAVE_DSHOW AND NOT NETFX_CORE)
   list(APPEND highgui_srcs src/cap_dshow.cpp)
 endif()
 
@@ -123,7 +123,7 @@ if (WIN32 AND HAVE_MSMF)
   list(APPEND highgui_srcs src/cap_msmf.cpp)
 endif()
 
-if (WIN32 AND HAVE_VFW)
+if (WIN32 AND HAVE_VFW AND NOT NETFX_CORE)
   list(APPEND highgui_srcs src/cap_vfw.cpp)
 endif()
 
