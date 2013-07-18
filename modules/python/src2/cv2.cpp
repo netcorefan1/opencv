@@ -23,6 +23,8 @@
 #  include "opencv2/nonfree.hpp"
 #endif
 
+#include "pycompat.hpp"
+
 using cv::flann::IndexParams;
 using cv::flann::SearchParams;
 
@@ -95,6 +97,7 @@ using namespace cv;
 typedef cv::softcascade::ChannelFeatureBuilder softcascade_ChannelFeatureBuilder;
 
 typedef std::vector<uchar> vector_uchar;
+typedef std::vector<char> vector_char;
 typedef std::vector<int> vector_int;
 typedef std::vector<float> vector_float;
 typedef std::vector<double> vector_double;
@@ -110,6 +113,8 @@ typedef std::vector<KeyPoint> vector_KeyPoint;
 typedef std::vector<Mat> vector_Mat;
 typedef std::vector<DMatch> vector_DMatch;
 typedef std::vector<String> vector_String;
+
+typedef std::vector<std::vector<char> > vector_vector_char;
 typedef std::vector<std::vector<Point> > vector_vector_Point;
 typedef std::vector<std::vector<Point2f> > vector_vector_Point2f;
 typedef std::vector<std::vector<Point3f> > vector_vector_Point3f;
@@ -828,7 +833,7 @@ template<typename _Tp> struct pyopencvVecConverter
     }
 };
 
-template <typename _Tp>
+template<typename _Tp>
 bool pyopencv_to(PyObject* obj, std::vector<_Tp>& value, const ArgInfo info)
 {
     return pyopencvVecConverter<_Tp>::to(obj, value, info);
@@ -886,9 +891,9 @@ template<typename _Tp> static inline PyObject* pyopencv_from_generic_vec(const s
 
 template<typename _Tp> struct pyopencvVecConverter<std::vector<_Tp> >
 {
-    static bool to(PyObject* obj, std::vector<std::vector<_Tp> >& value, const char* name="<unknown>")
+    static bool to(PyObject* obj, std::vector<std::vector<_Tp> >& value, const ArgInfo info)
     {
-        return pyopencv_to_generic_vec(obj, value, name);
+        return pyopencv_to_generic_vec(obj, value, info);
     }
 
     static PyObject* from(const std::vector<std::vector<_Tp> >& value)
@@ -1176,7 +1181,11 @@ static int convert_to_char(PyObject *o, char *dst, const char *name = "no_name")
   }
 }
 
+#if PY_MAJOR_VERSION >= 3
+#define MKTYPE2(NAME) pyopencv_##NAME##_specials(); if (!to_ok(&pyopencv_##NAME##_Type)) return NULL;
+#else
 #define MKTYPE2(NAME) pyopencv_##NAME##_specials(); if (!to_ok(&pyopencv_##NAME##_Type)) return
+#endif
 
 #ifdef __GNUC__
 #  pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -1190,7 +1199,7 @@ static PyMethodDef methods[] = {
 
 #include "pyopencv_generated_func_tab.h"
   {"createTrackbar", pycvCreateTrackbar, METH_VARARGS, "createTrackbar(trackbarName, windowName, value, count, onChange) -> None"},
-  {"setMouseCallback", (PyCFunction)pycvSetMouseCallback, METH_KEYWORDS, "setMouseCallback(windowName, onMouse [, param]) -> None"},
+  {"setMouseCallback", (PyCFunction)pycvSetMouseCallback, METH_VARARGS | METH_KEYWORDS, "setMouseCallback(windowName, onMouse [, param]) -> None"},
   {NULL, NULL},
 };
 
@@ -1205,15 +1214,35 @@ static int to_ok(PyTypeObject *to)
   return (PyType_Ready(to) == 0);
 }
 
+
+#if PY_MAJOR_VERSION >= 3
+extern "C" CV_EXPORTS PyObject* PyInit_cv2();
+static struct PyModuleDef cv2_moduledef =
+{
+    PyModuleDef_HEAD_INIT,
+    MODULESTR,
+    "Python wrapper for OpenCV.",
+    -1,     /* size of per-interpreter state of the module,
+               or -1 if the module keeps state in global variables. */
+    methods
+};
+
+PyObject* PyInit_cv2()
+#else
 extern "C" CV_EXPORTS void initcv2();
 
 void initcv2()
+#endif
 {
   import_array();
 
 #include "pyopencv_generated_type_reg.h"
 
+#if PY_MAJOR_VERSION >= 3
+  PyObject* m = PyModule_Create(&cv2_moduledef);
+#else
   PyObject* m = Py_InitModule(MODULESTR, methods);
+#endif
   PyObject* d = PyModule_GetDict(m);
 
   PyDict_SetItemString(d, "__version__", PyString_FromString(CV_VERSION));
@@ -1262,5 +1291,7 @@ void initcv2()
   PUBLISH(CV_64FC4);
 
 #include "pyopencv_generated_const_reg.h"
-
+#if PY_MAJOR_VERSION >= 3
+    return m;
+#endif
 }
