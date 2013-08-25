@@ -710,7 +710,7 @@ namespace cv
         //! returns 2D filter with the specified kernel
         // supports CV_8UC1 and CV_8UC4 types
         CV_EXPORTS Ptr<BaseFilter_GPU> getLinearFilter_GPU(int srcType, int dstType, const Mat &kernel, const Size &ksize,
-                Point anchor = Point(-1, -1), int borderType = BORDER_DEFAULT);
+                const Point &anchor = Point(-1, -1), int borderType = BORDER_DEFAULT);
 
         //! returns the non-separable linear filter engine
         CV_EXPORTS Ptr<FilterEngine_GPU> createLinearFilter_GPU(int srcType, int dstType, const Mat &kernel,
@@ -853,62 +853,29 @@ namespace cv
         CV_EXPORTS void cornerMinEigenVal_dxdy(const oclMat &src, oclMat &dst, oclMat &Dx, oclMat &Dy,
             int blockSize, int ksize, int bordertype = cv::BORDER_DEFAULT);
 
+
+        /////////////////////////////////// ML ///////////////////////////////////////////
+
+        //! Compute closest centers for each lines in source and lable it after center's index
+        // supports CV_32FC1/CV_32FC2/CV_32FC4 data type
+        CV_EXPORTS void distanceToCenters(oclMat &dists, oclMat &labels, const oclMat &src, const oclMat &centers);
+
+        //!Does k-means procedure on GPU
+        // supports CV_32FC1/CV_32FC2/CV_32FC4 data type
+        CV_EXPORTS double kmeans(const oclMat &src, int K, oclMat &bestLabels,
+                                     TermCriteria criteria, int attemps, int flags, oclMat &centers);
+
+
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////CascadeClassifier//////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#if 0
         class CV_EXPORTS OclCascadeClassifier : public  cv::CascadeClassifier
         {
         public:
-            OclCascadeClassifier() {};
-            ~OclCascadeClassifier() {};
-
-            CvSeq* oclHaarDetectObjects(oclMat &gimg, CvMemStorage *storage, double scaleFactor,
-                                        int minNeighbors, int flags, CvSize minSize = cvSize(0, 0), CvSize maxSize = cvSize(0, 0));
-        };
-#endif
-
-#if 0
-        class CV_EXPORTS OclCascadeClassifierBuf : public  cv::CascadeClassifier
-        {
-        public:
-            OclCascadeClassifierBuf() :
-                m_flags(0), initialized(false), m_scaleFactor(0), buffers(NULL) {}
-
-            ~OclCascadeClassifierBuf() { release(); }
-
             void detectMultiScale(oclMat &image, CV_OUT std::vector<cv::Rect>& faces,
                                   double scaleFactor = 1.1, int minNeighbors = 3, int flags = 0,
                                   Size minSize = Size(), Size maxSize = Size());
-            void release();
-
-        private:
-            void Init(const int rows, const int cols, double scaleFactor, int flags,
-                      const int outputsz, const size_t localThreads[],
-                      Size minSize, Size maxSize);
-            void CreateBaseBufs(const int datasize, const int totalclassifier, const int flags, const int outputsz);
-            void CreateFactorRelatedBufs(const int rows, const int cols, const int flags,
-                                         const double scaleFactor, const size_t localThreads[],
-                                         Size minSize, Size maxSize);
-            void GenResult(CV_OUT std::vector<cv::Rect>& faces, const std::vector<cv::Rect> &rectList, const std::vector<int> &rweights);
-
-            int m_rows;
-            int m_cols;
-            int m_flags;
-            int m_loopcount;
-            int m_nodenum;
-            bool findBiggestObject;
-            bool initialized;
-            double m_scaleFactor;
-            Size m_minSize;
-            Size m_maxSize;
-            std::vector<Size> sizev;
-            std::vector<float> scalev;
-            oclMat gimg1, gsum, gsqsum;
-            void * buffers;
         };
-#endif
 
         /////////////////////////////// Pyramid /////////////////////////////////////
         CV_EXPORTS void pyrDown(const oclMat &src, oclMat &dst);
@@ -1805,6 +1772,31 @@ namespace cv
             oclMat diff_buf;
             oclMat norm_buf;
         };
+        // current supported sorting methods
+        enum
+        {
+            SORT_BITONIC,   // only support power-of-2 buffer size
+            SORT_SELECTION, // cannot sort duplicate keys
+            SORT_MERGE,
+            SORT_RADIX      // only support signed int/float keys(CV_32S/CV_32F)
+        };
+        //! Returns the sorted result of all the elements in input based on equivalent keys.
+        //
+        //  The element unit in the values to be sorted is determined from the data type, 
+        //  i.e., a CV_32FC2 input {a1a2, b1b2} will be considered as two elements, regardless its
+        //  matrix dimension.
+        //  both keys and values will be sorted inplace
+        //  Key needs to be single channel oclMat.
+        //
+        //  Example:
+        //  input -
+        //    keys   = {2,    3,   1}   (CV_8UC1)
+        //    values = {10,5, 4,3, 6,2} (CV_8UC2)
+        //  sortByKey(keys, values, SORT_SELECTION, false);
+        //  output -
+        //    keys   = {1,    2,   3}   (CV_8UC1)
+        //    values = {6,2, 10,5, 4,3} (CV_8UC2)
+        void CV_EXPORTS sortByKey(oclMat& keys, oclMat& values, int method, bool isGreaterThan = false);
     }
 }
 #if defined _MSC_VER && _MSC_VER >= 1200
