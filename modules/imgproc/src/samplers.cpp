@@ -379,7 +379,7 @@ void cv::getRectSubPix( InputArray _image, Size patchSize, Point2f center,
     _patch.create(patchSize, CV_MAKETYPE(ddepth, cn));
     Mat patch = _patch.getMat();
 
-#if defined (HAVE_IPP) && (IPP_VERSION_MAJOR >= 7)
+/*#if defined (HAVE_IPP) && (IPP_VERSION_MAJOR >= 7)
     CvPoint minpt, maxpt;
     int srctype = CV_MAT_TYPE(src->type), dsttype = CV_MAT_TYPE(dst->type);
     CvIPPGetRectSubPixFunc ippfunc =
@@ -390,7 +390,7 @@ void cv::getRectSubPix( InputArray _image, Size patchSize, Point2f center,
     if( ippfunc && ippfunc(src->data.ptr, src->step, src_size, dst->data.ptr,
                            dst->step, dst_size, center, &minpt, &maxpt) >= 0 )
         return;
-#endif
+#endif*/
 
     if( depth == CV_8U && ddepth == CV_8U )
         getRectSubPix_Cn_<uchar, uchar, int, scale_fixpt, cast_8u>
