@@ -101,7 +101,7 @@ PngDecoder::~PngDecoder()
 
 ImageDecoder PngDecoder::newDecoder() const
 {
-    return new PngDecoder;
+    return makePtr<PngDecoder>();
 }
 
 void  PngDecoder::close()
@@ -277,6 +277,7 @@ bool  PngDecoder::readData( Mat& img )
             else
                 png_set_rgb_to_gray( png_ptr, 1, 0.299, 0.587 ); // RGB->Gray
 
+            png_set_interlace_handling( png_ptr );
             png_read_update_info( png_ptr, info_ptr );
 
             for( y = 0; y < m_height; y++ )
@@ -316,7 +317,7 @@ bool  PngEncoder::isFormatSupported( int depth ) const
 
 ImageEncoder PngEncoder::newEncoder() const
 {
-    return new PngEncoder;
+    return makePtr<PngEncoder>();
 }
 
 

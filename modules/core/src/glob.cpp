@@ -101,6 +101,7 @@ namespace
         if(dir->handle == INVALID_HANDLE_VALUE)
         {
             /*closedir will do all cleanup*/
+            delete dir;
             return 0;
         }
         return dir;
@@ -154,6 +155,7 @@ static bool isDir(const cv::String& path, DIR* dir)
 {
 #if defined WIN32 || defined _WIN32 || defined WINCE
    DWORD attributes;
+   BOOL status = TRUE;
    if (dir)
       attributes = dir->data.dwFileAttributes;
    else
@@ -173,15 +175,15 @@ static bool isDir(const cv::String& path, DIR* dir)
         wchar_t wpath[MAX_PATH];
         size_t copied = mbstowcs(wpath, path.c_str(), MAX_PATH);
         CV_Assert((copied != MAX_PATH) && (copied != (size_t)-1));
-        ::GetFileAttributesExW(wpath, GetFileExInfoStandard, &all_attrs);
+        status = ::GetFileAttributesExW(wpath, GetFileExInfoStandard, &all_attrs);
 #else
-        ::GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &all_attrs);
+        status = ::GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &all_attrs);
 #endif
         attributes = all_attrs.dwFileAttributes;
 #endif
    }
-   return (attributes != INVALID_FILE_ATTRIBUTES) && ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0);
 
+    return status && ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0);
 #else
     (void)dir;
     struct stat stat_buf;

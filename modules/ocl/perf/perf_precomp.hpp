@@ -67,6 +67,7 @@
 #include <vector>
 #include <numeric>
 
+#include "cvconfig.h"
 #include "opencv2/core.hpp"
 #include "opencv2/core/utility.hpp"
 #include "opencv2/imgproc.hpp"
@@ -102,7 +103,7 @@ using namespace cv;
 
 #ifdef HAVE_OPENCV_GPU
 #define OCL_PERF_ELSE               \
-        if (RUN_GPU_IMPL)          \
+        if (RUN_GPU_IMPL)           \
             CV_TEST_FAIL_NO_IMPL(); \
         else                        \
             CV_TEST_FAIL_NO_IMPL();
@@ -110,5 +111,9 @@ using namespace cv;
 #define OCL_PERF_ELSE               \
             CV_TEST_FAIL_NO_IMPL();
 #endif
+
+#define OCL_TEST_CYCLE_N(n) for(declare.iterations(n); startTimer(), next(); ocl::finish(), stopTimer())
+#define OCL_TEST_CYCLE() for(; startTimer(), next(); ocl::finish(), stopTimer())
+#define OCL_TEST_CYCLE_MULTIRUN(runsNum) for(declare.runs(runsNum); startTimer(), next(); stopTimer()) for(int r = 0; r < runsNum; ocl::finish(), ++r)
 
 #endif

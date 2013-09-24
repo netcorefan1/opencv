@@ -51,13 +51,15 @@ using namespace perf;
 
 typedef TestBaseWithParam<Size> gemmFixture;
 
-PERF_TEST_P(gemmFixture, DISABLED_gemm, OCL_TYPICAL_MAT_SIZES) // TODO not implemented
+#ifdef HAVE_CLAMDBLAS
+
+PERF_TEST_P(gemmFixture, gemm, ::testing::Values(OCL_SIZE_1000, OCL_SIZE_2000))
 {
     const Size srcSize = GetParam();
 
     Mat src1(srcSize, CV_32FC1), src2(srcSize, CV_32FC1),
             src3(srcSize, CV_32FC1), dst(srcSize, CV_32FC1);
-    declare.in(src1, src2, src3).out(dst);
+    declare.in(src1, src2, src3).out(dst).time(srcSize == OCL_SIZE_2000 ? 65 : 8);
     randu(src1, -10.0f, 10.0f);
     randu(src2, -10.0f, 10.0f);
     randu(src3, -10.0f, 10.0f);
@@ -67,18 +69,20 @@ PERF_TEST_P(gemmFixture, DISABLED_gemm, OCL_TYPICAL_MAT_SIZES) // TODO not imple
         ocl::oclMat oclSrc1(src1), oclSrc2(src2),
                 oclSrc3(src3), oclDst(srcSize, CV_32FC1);
 
-        TEST_CYCLE() cv::ocl::gemm(oclSrc1, oclSrc2, 1.0, oclSrc3, 1.0, oclDst);
+        OCL_TEST_CYCLE() cv::ocl::gemm(oclSrc1, oclSrc2, 1.0, oclSrc3, 1.0, oclDst);
 
         oclDst.download(dst);
 
-        SANITY_CHECK(dst);
+        SANITY_CHECK(dst, 0.01);
     }
     else if (RUN_PLAIN_IMPL)
     {
         TEST_CYCLE() cv::gemm(src1, src2, 1.0, src3, 1.0, dst);
 
-        SANITY_CHECK(dst);
+        SANITY_CHECK(dst, 0.01);
     }
     else
         OCL_PERF_ELSE
 }
+
+#endif
