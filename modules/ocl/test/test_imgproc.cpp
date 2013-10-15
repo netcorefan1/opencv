@@ -482,7 +482,6 @@ struct CopyMakeBorder : ImgprocTestBase {};
 TEST_P(CopyMakeBorder, Mat)
 {
     int bordertype[] = {cv::BORDER_CONSTANT, cv::BORDER_REPLICATE, cv::BORDER_REFLECT, cv::BORDER_WRAP, cv::BORDER_REFLECT_101};
-    //const char *borderstr[] = {"BORDER_CONSTANT", "BORDER_REPLICATE", "BORDER_REFLECT", "BORDER_WRAP", "BORDER_REFLECT_101"};
     cv::RNG &rng = TS::ptr()->get_rng();
     int top = rng.uniform(0, 10);
     int bottom = rng.uniform(0, 10);
@@ -580,7 +579,19 @@ TEST_P(cornerHarris, Mat)
 
 struct integral : ImgprocTestBase {};
 
-TEST_P(integral, Mat)
+TEST_P(integral, Mat1)
+{
+    for(int j = 0; j < LOOP_TIMES; j++)
+    {
+        random_roi();
+
+        cv::ocl::integral(clmat1_roi, cldst_roi);
+        cv::integral(mat1_roi, dst_roi);
+        Near(0);
+    }
+}
+
+TEST_P(integral, Mat2)
 {
     for(int j = 0; j < LOOP_TIMES; j++)
     {
@@ -895,8 +906,7 @@ TEST_P(Remap, Mat)
         return;
     }
     int bordertype[] = {cv::BORDER_CONSTANT, cv::BORDER_REPLICATE/*,BORDER_REFLECT,BORDER_WRAP,BORDER_REFLECT_101*/};
-    //const char *borderstr[] = {"BORDER_CONSTANT", "BORDER_REPLICATE"/*, "BORDER_REFLECT","BORDER_WRAP","BORDER_REFLECT_101"*/};
-    // for(int i = 0; i < sizeof(bordertype)/sizeof(int); i++)
+
     for(int j = 0; j < LOOP_TIMES; j++)
     {
         random_roi();
@@ -908,7 +918,6 @@ TEST_P(Remap, Mat)
         if(interpolation == 0)
             EXPECT_MAT_NEAR(dst, cpu_dst, 1.0);
         EXPECT_MAT_NEAR(dst, cpu_dst, 2.0);
-
     }
 }
 

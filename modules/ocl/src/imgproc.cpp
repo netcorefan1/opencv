@@ -55,7 +55,7 @@
 //M*/
 
 #include "precomp.hpp"
-#include <iomanip>
+#include "opencl_kernels.hpp"
 
 using namespace cv;
 using namespace cv::ocl;
@@ -64,25 +64,6 @@ namespace cv
 {
     namespace ocl
     {
-
-        ////////////////////////////////////OpenCL kernel strings//////////////////////////
-        extern const char *meanShift;
-        extern const char *imgproc_copymakeboder;
-        extern const char *imgproc_median;
-        extern const char *imgproc_threshold;
-        extern const char *imgproc_resize;
-        extern const char *imgproc_remap;
-        extern const char *imgproc_warpAffine;
-        extern const char *imgproc_warpPerspective;
-        extern const char *imgproc_integral_sum;
-        extern const char *imgproc_integral;
-        extern const char *imgproc_histogram;
-        extern const char *imgproc_bilateral;
-        extern const char *imgproc_calcHarris;
-        extern const char *imgproc_calcMinEigenVal;
-        extern const char *imgproc_convolve;
-        extern const char *imgproc_mulAndScaleSpectrums;
-        extern const char *imgproc_clahe;
         ////////////////////////////////////OpenCL call wrappers////////////////////////////
 
         template <typename T> struct index_and_sizeof;
@@ -245,9 +226,6 @@ namespace cv
                     kernelName = "remapNNF1Constant";
             }
 
-            //int channels = dst.oclchannels();
-            //int depth = dst.depth();
-            //int type = src.type();
             size_t blkSizeX = 16, blkSizeY = 16;
             size_t glbSizeX;
             int cols = dst.cols;
@@ -294,7 +272,7 @@ namespace cv
                 args.push_back( std::make_pair(sizeof(cl_int), (void *)&cols));
                 float borderFloat[4] = {(float)borderValue[0], (float)borderValue[1], (float)borderValue[2], (float)borderValue[3]};
 
-                if(src.clCxt->supportsFeature(Context::CL_DOUBLE))
+                if(src.clCxt->supportsFeature(FEATURE_CL_DOUBLE))
                 {
                     args.push_back( std::make_pair(sizeof(cl_double4), (void *)&borderValue));
                 }
@@ -322,7 +300,7 @@ namespace cv
                 args.push_back( std::make_pair(sizeof(cl_int), (void *)&map1.cols));
                 args.push_back( std::make_pair(sizeof(cl_int), (void *)&map1.rows));
                 args.push_back( std::make_pair(sizeof(cl_int), (void *)&cols));
-                if(src.clCxt->supportsFeature(Context::CL_DOUBLE))
+                if(src.clCxt->supportsFeature(FEATURE_CL_DOUBLE))
                 {
                     args.push_back( std::make_pair(sizeof(cl_double4), (void *)&borderValue));
                 }
@@ -385,7 +363,7 @@ namespace cv
                 args.push_back( std::make_pair(sizeof(cl_int), (void *)&src.rows));
                 args.push_back( std::make_pair(sizeof(cl_int), (void *)&dst.cols));
                 args.push_back( std::make_pair(sizeof(cl_int), (void *)&dst.rows));
-                if(src.clCxt->supportsFeature(Context::CL_DOUBLE))
+                if(src.clCxt->supportsFeature(FEATURE_CL_DOUBLE))
                 {
                     args.push_back( std::make_pair(sizeof(cl_double), (void *)&ifx_d));
                     args.push_back( std::make_pair(sizeof(cl_double), (void *)&ify_d));
@@ -501,21 +479,13 @@ namespace cv
                 openCLExecuteKernel(clCxt, &imgproc_median, kernelName, globalThreads, localThreads, args, src.oclchannels(), src.depth());
             }
             else
-            {
                 CV_Error(Error::StsUnsupportedFormat, "Non-supported filter length");
-                //String kernelName = "medianFilter";
-                //args.push_back( std::make_pair( sizeof(cl_int),(void*)&m));
-
-                //openCLExecuteKernel(clCxt,&imgproc_median,kernelName,globalThreads,localThreads,args,src.oclchannels(),-1);
-            }
-
         }
 
         ////////////////////////////////////////////////////////////////////////
         // copyMakeBorder
         void copyMakeBorder(const oclMat &src, oclMat &dst, int top, int bottom, int left, int right, int bordertype, const Scalar &scalar)
         {
-            //CV_Assert(src.oclchannels() != 2);
             CV_Assert(top >= 0 && bottom >= 0 && left >= 0 && right >= 0);
             if((dst.cols != dst.wholecols) || (dst.rows != dst.wholerows)) //has roi
             {
@@ -531,10 +501,12 @@ namespace cv
             {
                 CV_Assert((src.cols >= left) && (src.cols >= right) && (src.rows >= top) && (src.rows >= bottom));
             }
+
             if(bordertype == cv::BORDER_REFLECT_101)
             {
                 CV_Assert((src.cols > left) && (src.cols > right) && (src.rows > top) && (src.rows > bottom));
             }
+
             dst.create(src.rows + top + bottom, src.cols + left + right, src.type());
             int srcStep = src.step1() / src.oclchannels();
             int dstStep = dst.step1() / dst.oclchannels();
@@ -734,19 +706,6 @@ namespace cv
             }
 
             openCLExecuteKernel(src.clCxt, &imgproc_copymakeboder, kernelName, globalThreads, localThreads, args, -1, -1, compile_option);
-            //uchar* cputemp=new uchar[32*dst.wholerows];
-            ////int* cpudata=new int[this->step*this->wholerows/sizeof(int)];
-            //openCLSafeCall(clEnqueueReadBuffer(src.clCxt->impl->clCmdQueue, (cl_mem)dst.data, CL_TRUE,
-            //						0, 32*dst.wholerows, cputemp, 0, NULL, NULL));
-            //for(int i=0;i<dst.wholerows;i++)
-            //{
-            //	for(int j=0;j<dst.wholecols;j++)
-            //	{
-            //		std::cout<< (int)cputemp[i*32+j]<<" ";
-            //	}
-            //	std::cout<<std::endl;
-            //}
-            //delete []cputemp;
         }
 
         ////////////////////////////////////////////////////////////////////////
@@ -826,12 +785,12 @@ namespace cv
                 String kernelName = "warpAffine" + s[interpolation];
 
 
-                if(src.clCxt->supportsFeature(Context::CL_DOUBLE))
+                if(src.clCxt->supportsFeature(FEATURE_CL_DOUBLE))
                 {
                     cl_int st;
-                    coeffs_cm = clCreateBuffer( (cl_context)clCxt->oclContext(), CL_MEM_READ_WRITE, sizeof(F) * 2 * 3, NULL, &st );
+                    coeffs_cm = clCreateBuffer(*(cl_context*)clCxt->getOpenCLContextPtr(), CL_MEM_READ_WRITE, sizeof(F) * 2 * 3, NULL, &st );
                     openCLVerifyCall(st);
-                    openCLSafeCall(clEnqueueWriteBuffer((cl_command_queue)clCxt->oclCommandQueue(), (cl_mem)coeffs_cm, 1, 0, sizeof(F) * 2 * 3, coeffs, 0, 0, 0));
+                    openCLSafeCall(clEnqueueWriteBuffer(*(cl_command_queue*)clCxt->getOpenCLCommandQueuePtr(), (cl_mem)coeffs_cm, 1, 0, sizeof(F) * 2 * 3, coeffs, 0, 0, 0));
                 }
                 else
                 {
@@ -841,8 +800,8 @@ namespace cv
                         {
                             float_coeffs[m][n] = coeffs[m][n];
                         }
-                        coeffs_cm = clCreateBuffer( (cl_context)clCxt->oclContext(), CL_MEM_READ_WRITE, sizeof(float) * 2 * 3, NULL, &st );
-                        openCLSafeCall(clEnqueueWriteBuffer((cl_command_queue)clCxt->oclCommandQueue(), (cl_mem)coeffs_cm, 1, 0, sizeof(float) * 2 * 3, float_coeffs, 0, 0, 0));
+                        coeffs_cm = clCreateBuffer(*(cl_context*)clCxt->getOpenCLContextPtr(), CL_MEM_READ_WRITE, sizeof(float) * 2 * 3, NULL, &st );
+                        openCLSafeCall(clEnqueueWriteBuffer(*(cl_command_queue*)clCxt->getOpenCLCommandQueuePtr(), (cl_mem)coeffs_cm, 1, 0, sizeof(float) * 2 * 3, float_coeffs, 0, 0, 0));
 
                 }
                 //TODO: improve this kernel
@@ -896,12 +855,12 @@ namespace cv
                 String s[3] = {"NN", "Linear", "Cubic"};
                 String kernelName = "warpPerspective" + s[interpolation];
 
-                if(src.clCxt->supportsFeature(Context::CL_DOUBLE))
+                if(src.clCxt->supportsFeature(FEATURE_CL_DOUBLE))
                 {
                     cl_int st;
-                    coeffs_cm = clCreateBuffer((cl_context) clCxt->oclContext(), CL_MEM_READ_WRITE, sizeof(double) * 3 * 3, NULL, &st );
+                    coeffs_cm = clCreateBuffer(*(cl_context*)clCxt->getOpenCLContextPtr(), CL_MEM_READ_WRITE, sizeof(double) * 3 * 3, NULL, &st );
                     openCLVerifyCall(st);
-                    openCLSafeCall(clEnqueueWriteBuffer((cl_command_queue)clCxt->oclCommandQueue(), (cl_mem)coeffs_cm, 1, 0, sizeof(double) * 3 * 3, coeffs, 0, 0, 0));
+                    openCLSafeCall(clEnqueueWriteBuffer(*(cl_command_queue*)clCxt->getOpenCLCommandQueuePtr(), (cl_mem)coeffs_cm, 1, 0, sizeof(double) * 3 * 3, coeffs, 0, 0, 0));
                 }
                 else
                 {
@@ -910,9 +869,9 @@ namespace cv
                         for(int n = 0; n < 3; n++)
                             float_coeffs[m][n] = coeffs[m][n];
 
-                    coeffs_cm = clCreateBuffer((cl_context) clCxt->oclContext(), CL_MEM_READ_WRITE, sizeof(float) * 3 * 3, NULL, &st );
+                    coeffs_cm = clCreateBuffer(*(cl_context*)clCxt->getOpenCLContextPtr(), CL_MEM_READ_WRITE, sizeof(float) * 3 * 3, NULL, &st );
                     openCLVerifyCall(st);
-                    openCLSafeCall(clEnqueueWriteBuffer((cl_command_queue)clCxt->oclCommandQueue(), (cl_mem)coeffs_cm, 1, 0, sizeof(float) * 3 * 3, float_coeffs, 0, 0, 0));
+                    openCLSafeCall(clEnqueueWriteBuffer(*(cl_command_queue*)clCxt->getOpenCLCommandQueuePtr(), (cl_mem)coeffs_cm, 1, 0, sizeof(float) * 3 * 3, float_coeffs, 0, 0, 0));
                 }
                 //TODO: improve this kernel
                 size_t blkSizeX = 16, blkSizeY = 16;
@@ -1018,10 +977,12 @@ namespace cv
         void integral(const oclMat &src, oclMat &sum, oclMat &sqsum)
         {
             CV_Assert(src.type() == CV_8UC1);
-            if(!src.clCxt->supportsFeature(Context::CL_DOUBLE) && src.depth() == CV_64F)
+            if(!src.clCxt->supportsFeature(ocl::FEATURE_CL_DOUBLE) && src.depth() == CV_64F)
             {
                 CV_Error(Error::GpuNotSupported, "select device don't support double");
+                return;
             }
+
             int vlen = 4;
             int offset = src.offset / vlen;
             int pre_invalid = src.offset % vlen;
@@ -1029,21 +990,15 @@ namespace cv
 
             oclMat t_sum , t_sqsum;
             int w = src.cols + 1, h = src.rows + 1;
-            int depth;
-            if( src.cols * src.rows <= 2901 * 2901 ) //2901 is the maximum size for int when all values are 255
-            {
-                t_sum.create(src.cols, src.rows, CV_32SC1);
-                sum.create(h, w, CV_32SC1);
-            }
-            else
-            {
-                 //Use float to prevent overflow
-                t_sum.create(src.cols, src.rows, CV_32FC1);
-                sum.create(h, w, CV_32FC1);
-            }
+            int depth = src.depth() == CV_8U ? CV_32S : CV_64F;
+            int type = CV_MAKE_TYPE(depth, 1);
+
+            t_sum.create(src.cols, src.rows, type);
+            sum.create(h, w, type);
+
             t_sqsum.create(src.cols, src.rows, CV_32FC1);
             sqsum.create(h, w, CV_32FC1);
-            depth = sum.depth();
+
             int sum_offset = sum.offset / vlen;
             int sqsum_offset = sqsum.offset / vlen;
 
@@ -1059,6 +1014,7 @@ namespace cv
             args.push_back( std::make_pair( sizeof(cl_int) , (void *)&t_sum.step));
             size_t gt[3] = {((vcols + 1) / 2) * 256, 1, 1}, lt[3] = {256, 1, 1};
             openCLExecuteKernel(src.clCxt, &imgproc_integral, "integral_cols", gt, lt, args, -1, depth);
+
             args.clear();
             args.push_back( std::make_pair( sizeof(cl_mem) , (void *)&t_sum.data ));
             args.push_back( std::make_pair( sizeof(cl_mem) , (void *)&t_sqsum.data ));
@@ -1085,19 +1041,13 @@ namespace cv
 
             oclMat t_sum;
             int w = src.cols + 1, h = src.rows + 1;
-            int depth;
-            if(src.cols * src.rows <= 2901 * 2901)
-            {
-                t_sum.create(src.cols, src.rows, CV_32SC1);
-                sum.create(h, w, CV_32SC1);
-            }else
-            {
-                 t_sum.create(src.cols, src.rows, CV_32FC1);
-                 sum.create(h, w, CV_32FC1);
-            }
-            depth = sum.depth();
-            int sum_offset = sum.offset / vlen;
+            int depth = src.depth() == CV_8U ? CV_32S : CV_32F;
+            int type = CV_MAKE_TYPE(depth, 1);
 
+            t_sum.create(src.cols, src.rows, type);
+            sum.create(h, w, type);
+
+            int sum_offset = sum.offset / vlen;
             std::vector<std::pair<size_t , const void *> > args;
             args.push_back( std::make_pair( sizeof(cl_mem) , (void *)&src.data ));
             args.push_back( std::make_pair( sizeof(cl_mem) , (void *)&t_sum.data ));
@@ -1109,6 +1059,7 @@ namespace cv
             args.push_back( std::make_pair( sizeof(cl_int) , (void *)&t_sum.step));
             size_t gt[3] = {((vcols + 1) / 2) * 256, 1, 1}, lt[3] = {256, 1, 1};
             openCLExecuteKernel(src.clCxt, &imgproc_integral_sum, "integral_sum_cols", gt, lt, args, -1, depth);
+
             args.clear();
             args.push_back( std::make_pair( sizeof(cl_mem) , (void *)&t_sum.data ));
             args.push_back( std::make_pair( sizeof(cl_mem) , (void *)&sum.data ));
@@ -1119,7 +1070,6 @@ namespace cv
             args.push_back( std::make_pair( sizeof(cl_int) , (void *)&sum_offset));
             size_t gt2[3] = {t_sum.cols  * 32, 1, 1}, lt2[3] = {256, 1, 1};
             openCLExecuteKernel(src.clCxt, &imgproc_integral_sum, "integral_sum_rows", gt2, lt2, args, -1, depth);
-            //std::cout << "tested" << std::endl;
         }
 
         /////////////////////// corner //////////////////////////////
@@ -1153,7 +1103,7 @@ namespace cv
             CV_Assert(Dx.offset == 0 && Dy.offset == 0);
         }
 
-        static void corner_ocl(const char *src_str, String kernelName, int block_size, float k, oclMat &Dx, oclMat &Dy,
+        static void corner_ocl(const cv::ocl::ProgramEntry* source, String kernelName, int block_size, float k, oclMat &Dx, oclMat &Dy,
                         oclMat &dst, int border_type)
         {
             char borderType[30];
@@ -1205,7 +1155,7 @@ namespace cv
             args.push_back( std::make_pair(sizeof(cl_int), (void *)&dst.cols));
             args.push_back( std::make_pair(sizeof(cl_int), (void *)&dst.step));
             args.push_back( std::make_pair( sizeof(cl_float) , (void *)&k));
-            openCLExecuteKernel(dst.clCxt, &src_str, kernelName, gt, lt, args, -1, -1, build_options);
+            openCLExecuteKernel(dst.clCxt, source, kernelName, gt, lt, args, -1, -1, build_options);
         }
 
         void cornerHarris(const oclMat &src, oclMat &dst, int blockSize, int ksize,
@@ -1218,7 +1168,7 @@ namespace cv
         void cornerHarris_dxdy(const oclMat &src, oclMat &dst, oclMat &dx, oclMat &dy, int blockSize, int ksize,
                           double k, int borderType)
         {
-            if(!src.clCxt->supportsFeature(Context::CL_DOUBLE) && src.depth() == CV_64F)
+            if(!src.clCxt->supportsFeature(FEATURE_CL_DOUBLE) && src.depth() == CV_64F)
             {
                 CV_Error(Error::GpuNotSupported, "select device don't support double");
             }
@@ -1226,7 +1176,7 @@ namespace cv
             CV_Assert(borderType == cv::BORDER_CONSTANT || borderType == cv::BORDER_REFLECT101 || borderType == cv::BORDER_REPLICATE || borderType == cv::BORDER_REFLECT);
             extractCovData(src, dx, dy, blockSize, ksize, borderType);
             dst.create(src.size(), CV_32F);
-            corner_ocl(imgproc_calcHarris, "calcHarris", blockSize, static_cast<float>(k), dx, dy, dst, borderType);
+            corner_ocl(&imgproc_calcHarris, "calcHarris", blockSize, static_cast<float>(k), dx, dy, dst, borderType);
         }
 
         void cornerMinEigenVal(const oclMat &src, oclMat &dst, int blockSize, int ksize, int borderType)
@@ -1237,7 +1187,7 @@ namespace cv
 
         void cornerMinEigenVal_dxdy(const oclMat &src, oclMat &dst, oclMat &dx, oclMat &dy, int blockSize, int ksize, int borderType)
         {
-            if(!src.clCxt->supportsFeature(Context::CL_DOUBLE) && src.depth() == CV_64F)
+            if(!src.clCxt->supportsFeature(FEATURE_CL_DOUBLE) && src.depth() == CV_64F)
             {
                 CV_Error(Error::GpuNotSupported, "select device don't support double");
             }
@@ -1245,7 +1195,7 @@ namespace cv
             CV_Assert(borderType == cv::BORDER_CONSTANT || borderType == cv::BORDER_REFLECT101 || borderType == cv::BORDER_REPLICATE || borderType == cv::BORDER_REFLECT);
             extractCovData(src, dx, dy, blockSize, ksize, borderType);
             dst.create(src.size(), CV_32F);
-            corner_ocl(imgproc_calcMinEigenVal, "calcMinEigenVal", blockSize, 0, dx, dy, dst, borderType);
+            corner_ocl(&imgproc_calcMinEigenVal, "calcMinEigenVal", blockSize, 0, dx, dy, dst, borderType);
         }
         /////////////////////////////////// MeanShiftfiltering ///////////////////////////////////////////////
         static void meanShiftFiltering_gpu(const oclMat &src, oclMat dst, int sp, int sr, int maxIter, float eps)
@@ -1512,11 +1462,6 @@ namespace cv
         // CLAHE
         namespace clahe
         {
-            inline int divUp(int total, int grain)
-            {
-                return (total + grain - 1) / grain * grain;
-            }
-
             static void calcLut(const oclMat &src, oclMat &dst,
                 const int tilesX, const int tilesY, const cv::Size tileSize,
                 const int clipLimit, const float lutScale)
@@ -1538,19 +1483,17 @@ namespace cv
                 String kernelName = "calcLut";
                 size_t localThreads[3]  = { 32, 8, 1 };
                 size_t globalThreads[3] = { tilesX * localThreads[0], tilesY * localThreads[1], 1 };
-                bool is_cpu = queryDeviceInfo<IS_CPU_DEVICE, bool>();
+                bool is_cpu = isCpuDevice();
                 if (is_cpu)
-                {
                     openCLExecuteKernel(Context::getContext(), &imgproc_clahe, kernelName, globalThreads, localThreads, args, -1, -1, (char*)" -D CPU");
-                }
                 else
                 {
                     cl_kernel kernel = openCLGetKernelFromSource(Context::getContext(), &imgproc_clahe, kernelName);
-                    int wave_size = queryDeviceInfo<WAVEFRONT_SIZE, int>(kernel);
+                    size_t wave_size = queryWaveFrontSize(kernel);
                     openCLSafeCall(clReleaseKernel(kernel));
 
                     static char opt[20] = {0};
-                    sprintf(opt, " -D WAVE_SIZE=%d", wave_size);
+                    sprintf(opt, " -D WAVE_SIZE=%d", (int)wave_size);
                     openCLExecuteKernel(Context::getContext(), &imgproc_clahe, kernelName, globalThreads, localThreads, args, -1, -1, opt);
                 }
             }
@@ -1577,7 +1520,7 @@ namespace cv
 
                 String kernelName = "transform";
                 size_t localThreads[3]  = { 32, 8, 1 };
-                size_t globalThreads[3] = { divUp(src.cols, localThreads[0]), divUp(src.rows, localThreads[1]), 1 };
+                size_t globalThreads[3] = { src.cols, src.rows, 1 };
 
                 openCLExecuteKernel(Context::getContext(), &imgproc_clahe, kernelName, globalThreads, localThreads, args, -1, -1);
             }
@@ -1819,11 +1762,6 @@ void cv::ocl::mulSpectrums(const oclMat &a, const oclMat &b, oclMat &c, int /*fl
     openCLExecuteKernel(clCxt, &imgproc_mulAndScaleSpectrums, kernelName, gt, lt, args, -1, -1);
 }
 //////////////////////////////////convolve////////////////////////////////////////////////////
-inline int divUp(int total, int grain)
-{
-    return (total + grain - 1) / grain;
-}
-
 // ported from CUDA module
 void cv::ocl::ConvolveBuf::create(Size image_size, Size templ_size)
 {
@@ -1938,7 +1876,8 @@ static void convolve_run_fft(const oclMat &image, const oclMat &templ, oclMat &r
 #undef UNUSED
 #endif
 }
-static void convolve_run(const oclMat &src, const oclMat &temp1, oclMat &dst, String kernelName, const char **kernelString)
+
+static void convolve_run(const oclMat &src, const oclMat &temp1, oclMat &dst, String kernelName, const cv::ocl::ProgramEntry* source)
 {
     CV_Assert(src.depth() == CV_32FC1);
     CV_Assert(temp1.depth() == CV_32F);
@@ -1959,10 +1898,7 @@ static void convolve_run(const oclMat &src, const oclMat &temp1, oclMat &dst, St
     int rows = dst.rows;
 
     size_t localThreads[3]  = { 16, 16, 1 };
-    size_t globalThreads[3] = { divUp(cols, localThreads[0]) *localThreads[0],
-                                divUp(rows, localThreads[1]) *localThreads[1],
-                                1
-                              };
+    size_t globalThreads[3] = { cols, rows, 1 };
 
     std::vector<std::pair<size_t , const void *> > args;
     args.push_back( std::make_pair( sizeof(cl_mem), (void *)&src.data ));
@@ -1976,7 +1912,7 @@ static void convolve_run(const oclMat &src, const oclMat &temp1, oclMat &dst, St
     args.push_back( std::make_pair( sizeof(cl_int), (void *)&temp1.rows ));
     args.push_back( std::make_pair( sizeof(cl_int), (void *)&temp1.cols ));
 
-    openCLExecuteKernel(clCxt, kernelString, kernelName, globalThreads, localThreads, args, -1, depth);
+    openCLExecuteKernel(clCxt, source, kernelName, globalThreads, localThreads, args, -1, depth);
 }
 void cv::ocl::convolve(const oclMat &x, const oclMat &t, oclMat &y, bool ccorr)
 {

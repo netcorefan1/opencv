@@ -52,9 +52,6 @@
 /* IEEE1394 capturing support */
 #cmakedefine HAVE_DC1394
 
-/* libdc1394 0.9.4 or 0.9.5 */
-#cmakedefine HAVE_DC1394_095
-
 /* IEEE1394 capturing support - libdc1394 v2.x */
 #cmakedefine HAVE_DC1394_2
 
@@ -108,6 +105,8 @@
 
 /* OpenCL Support */
 #cmakedefine HAVE_OPENCL
+#cmakedefine HAVE_OPENCL11
+#cmakedefine HAVE_OPENCL12
 
 /* OpenEXR codec */
 #cmakedefine HAVE_OPENEXR
