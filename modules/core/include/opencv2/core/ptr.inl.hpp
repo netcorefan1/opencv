@@ -268,6 +268,11 @@ bool operator != (const Ptr<T>& ptr1, const Ptr<T>& ptr2)
 }
 
 template<typename T>
+void Ptr<T>::addref(){
+   if (owner) owner->incRef();
+}
+
+template<typename T>
 Ptr<T> makePtr()
 {
     return Ptr<T>(new T());

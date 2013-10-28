@@ -287,6 +287,8 @@ struct Ptr
     template<typename Y>
     Ptr<Y> dynamicCast() const;
 
+    void addref();
+
 private:
     detail::PtrOwner* owner;
     T* stored;
