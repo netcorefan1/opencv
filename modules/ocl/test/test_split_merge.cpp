@@ -54,7 +54,7 @@ using namespace std;
 
 #define MAX_CHANNELS 4
 
-PARAM_TEST_CASE(MergeTestBase, MatType, int, bool)
+PARAM_TEST_CASE(MergeTestBase, MatDepth, Channels, bool)
 {
     int type;
     int channels;
@@ -90,12 +90,11 @@ PARAM_TEST_CASE(MergeTestBase, MatType, int, bool)
         channels = GET_PARAM(1);
         use_roi = GET_PARAM(2);
 
-        cv::RNG &rng = TS::ptr()->get_rng();
         cv::Size size(MWIDTH, MHEIGHT);
 
         for (int i = 0; i < channels; ++i)
-            mat[i] = randomMat(rng, size, CV_MAKETYPE(type, 1), 5, 16, false);
-        dst = randomMat(rng, size, CV_MAKETYPE(type, channels), 5, 16, false);
+            mat[i] = randomMat(size, CV_MAKETYPE(type, 1), 5, 16, false);
+        dst = randomMat(size, CV_MAKETYPE(type, channels), 5, 16, false);
     }
 
     void random_roi()
@@ -103,7 +102,6 @@ PARAM_TEST_CASE(MergeTestBase, MatType, int, bool)
         if (use_roi)
         {
             //randomize ROI
-            cv::RNG &rng = TS::ptr()->get_rng();
             roicols = rng.uniform(1, mat[0].cols);
             roirows = rng.uniform(1, mat[0].rows);
 
@@ -141,7 +139,7 @@ PARAM_TEST_CASE(MergeTestBase, MatType, int, bool)
 
 struct Merge : MergeTestBase {};
 
-TEST_P(Merge, Accuracy)
+OCL_TEST_P(Merge, Accuracy)
 {
     for(int j = 0; j < LOOP_TIMES; j++)
     {
@@ -191,19 +189,17 @@ PARAM_TEST_CASE(SplitTestBase, MatType, int, bool)
         channels = GET_PARAM(1);
         use_roi = GET_PARAM(2);
 
-        cv::RNG &rng = TS::ptr()->get_rng();
         cv::Size size(MWIDTH, MHEIGHT);
 
-        mat  = randomMat(rng, size, CV_MAKETYPE(type, channels), 5, 16, false);
+        mat  = randomMat(size, CV_MAKETYPE(type, channels), 5, 16, false);
         for (int i = 0; i < channels; ++i)
-            dst[i] = randomMat(rng, size, CV_MAKETYPE(type, 1), 5, 16, false);    }
+            dst[i] = randomMat(size, CV_MAKETYPE(type, 1), 5, 16, false);    }
 
     void random_roi()
     {
         if (use_roi)
         {
             //randomize ROI
-            cv::RNG &rng = TS::ptr()->get_rng();
             roicols = rng.uniform(1, mat.cols);
             roirows = rng.uniform(1, mat.rows);
             srcx    = rng.uniform(0, mat.cols - roicols);
@@ -242,7 +238,7 @@ PARAM_TEST_CASE(SplitTestBase, MatType, int, bool)
 
 struct Split : SplitTestBase {};
 
-TEST_P(Split, Accuracy)
+OCL_TEST_P(Split, Accuracy)
 {
     for(int j = 0; j < LOOP_TIMES; j++)
     {
@@ -258,11 +254,11 @@ TEST_P(Split, Accuracy)
 
 
 INSTANTIATE_TEST_CASE_P(SplitMerge, Merge, Combine(
-                            Values(CV_8U, CV_8S, CV_16U, CV_16S, CV_32S, CV_32F), Range(1, 5), Bool()));
+                            Values(CV_8U, CV_8S, CV_16U, CV_16S, CV_32S, CV_32F), Values(1, 2, 3, 4), Bool()));
 
 
 INSTANTIATE_TEST_CASE_P(SplitMerge, Split , Combine(
-                            Values(CV_8U, CV_8S, CV_16U, CV_16S, CV_32S, CV_32F), Range(1, 5), Bool()));
+                            Values(CV_8U, CV_8S, CV_16U, CV_16S, CV_32S, CV_32F), Values(1, 2, 3, 4), Bool()));
 
 
 #endif // HAVE_OPENCL
