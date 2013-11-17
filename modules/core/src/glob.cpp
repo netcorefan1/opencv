@@ -122,14 +122,15 @@ namespace
         wcstombs(aname, dir->data.cFileName, asize);
         dir->ent.d_name = aname;
 #else
+
+#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
+        wcstombs( dir->ent.d_name, dir->data.cFileName, 260);
+#else
         if (dir->ent.d_name != 0)
         {
             if (::FindNextFileA(dir->handle, &dir->data) != TRUE)
                 return 0;
         }
-#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
-        wcstombs( dir->ent.d_name, dir->data.cFileName, 260);
-#else
         dir->ent.d_name = dir->data.cFileName;
 #endif
         return &dir->ent;
