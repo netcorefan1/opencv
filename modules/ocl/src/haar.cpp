@@ -655,7 +655,7 @@ void OclCascadeClassifier::detectMultiScale(oclMat &gimg, CV_OUT std::vector<cv:
 //CvSeq *cv::ocl::OclCascadeClassifier::oclHaarDetectObjects( oclMat &gimg, CvMemStorage *storage, double scaleFactor,
 //        int minNeighbors, int flags, CvSize minSize, CvSize maxSize)
 {
-    CvHaarClassifierCascade *cascade = oldCascade;
+    CvHaarClassifierCascade *cascade = (CvHaarClassifierCascade*)getOldCascade();
 
     const double GROUP_EPS = 0.2;
 
@@ -923,7 +923,7 @@ void OclCascadeClassifier::detectMultiScale(oclMat &gimg, CV_OUT std::vector<cv:
                 //use known local data stride to precalulate indexes
                 int DATA_SIZE_X = (localThreads[0]+cascade->orig_window_size.width);
                 // check that maximal value is less than maximal unsigned short
-                assert(DATA_SIZE_X*cascade->orig_window_size.height+cascade->orig_window_size.width < USHRT_MAX);
+                assert(DATA_SIZE_X*cascade->orig_window_size.height+cascade->orig_window_size.width < (int)USHRT_MAX);
                 for(int i = 0;i<nodenum;++i)
                 {//process each node from classifier
                     struct NodePK
@@ -959,15 +959,15 @@ void OclCascadeClassifier::detectMultiScale(oclMat &gimg, CV_OUT std::vector<cv:
 
             //form build options for kernel
             String  options = "-D PACKED_CLASSIFIER";
-            options = options + format(" -D NODE_SIZE=%d",NODE_SIZE);
-            options = options + format(" -D WND_SIZE_X=%d",cascade->orig_window_size.width);
-            options = options + format(" -D WND_SIZE_Y=%d",cascade->orig_window_size.height);
-            options = options + format(" -D STUMP_BASED=%d",gcascade->is_stump_based);
-            options = options + format(" -D LSx=%d",localThreads[0]);
-            options = options + format(" -D LSy=%d",localThreads[1]);
-            options = options + format(" -D SPLITNODE=%d",splitnode);
-            options = options + format(" -D SPLITSTAGE=%d",splitstage);
-            options = options + format(" -D OUTPUTSZ=%d",outputsz);
+            options += format(" -D NODE_SIZE=%d",NODE_SIZE);
+            options += format(" -D WND_SIZE_X=%d",cascade->orig_window_size.width);
+            options += format(" -D WND_SIZE_Y=%d",cascade->orig_window_size.height);
+            options += format(" -D STUMP_BASED=%d",gcascade->is_stump_based);
+            options += format(" -D LSx=%d",localThreads[0]);
+            options += format(" -D LSy=%d",localThreads[1]);
+            options += format(" -D SPLITNODE=%d",splitnode);
+            options += format(" -D SPLITSTAGE=%d",splitstage);
+            options += format(" -D OUTPUTSZ=%d",outputsz);
 
             // init candiate global count by 0
             int pattern = 0;

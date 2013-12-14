@@ -43,16 +43,8 @@
 //
 //M*/
 
-
-// resize kernel
-// Currently, CV_8UC1  CV_8UC4  CV_32FC1 and CV_32FC4are supported.
-// We shall support other types later if necessary.
-
 #if defined DOUBLE_SUPPORT
 #pragma OPENCL EXTENSION cl_khr_fp64:enable
-#define F double
-#else
-#define F float
 #endif
 
 #define INTER_RESIZE_COEF_BITS 11
@@ -89,7 +81,8 @@ __kernel void resizeLN(__global const uchar* srcptr, int srcstep, int srcoffset,
     int x_ = INC(x,srccols);
     __global const PIXTYPE* src = (__global const PIXTYPE*)(srcptr + mad24(y, srcstep, srcoffset + x*PIXSIZE));
 
-#if depth == 0
+#if depth <= 4
+
     u = u * INTER_RESIZE_COEF_SCALE;
     v = v * INTER_RESIZE_COEF_SCALE;
 
@@ -102,18 +95,22 @@ __kernel void resizeLN(__global const uchar* srcptr, int srcstep, int srcoffset,
     WORKTYPE data1 = convertToWT(*(__global const PIXTYPE*)(srcptr + mad24(y, srcstep, srcoffset + x_*PIXSIZE)));
     WORKTYPE data2 = convertToWT(*(__global const PIXTYPE*)(srcptr + mad24(y_, srcstep, srcoffset + x*PIXSIZE)));
     WORKTYPE data3 = convertToWT(*(__global const PIXTYPE*)(srcptr + mad24(y_, srcstep, srcoffset + x_*PIXSIZE)));
+
     WORKTYPE val = mul24((WORKTYPE)mul24(U1, V1), data0) + mul24((WORKTYPE)mul24(U, V1), data1) +
                mul24((WORKTYPE)mul24(U1, V), data2) + mul24((WORKTYPE)mul24(U, V), data3);
 
     PIXTYPE uval = convertToDT((val + (1<<(CAST_BITS-1)))>>CAST_BITS);
+
 #else
-    float u1 = 1.f-u;
-    float v1 = 1.f-v;
+    float u1 = 1.f - u;
+    float v1 = 1.f - v;
     WORKTYPE data0 = convertToWT(*(__global const PIXTYPE*)(srcptr + mad24(y, srcstep, srcoffset + x*PIXSIZE)));
     WORKTYPE data1 = convertToWT(*(__global const PIXTYPE*)(srcptr + mad24(y, srcstep, srcoffset + x_*PIXSIZE)));
     WORKTYPE data2 = convertToWT(*(__global const PIXTYPE*)(srcptr + mad24(y_, srcstep, srcoffset + x*PIXSIZE)));
     WORKTYPE data3 = convertToWT(*(__global const PIXTYPE*)(srcptr + mad24(y_, srcstep, srcoffset + x_*PIXSIZE)));
-    PIXTYPE uval = u1 * v1 * s_data1 + u * v1 * s_data2 + u1 * v *s_data3 + u * v *s_data4;
+
+    PIXTYPE uval = u1 * v1 * data0 + u * v1 * data1 + u1 * v *data2 + u * v *data3;
+
 #endif
 
     if(dx < dstcols && dy < dstrows)
@@ -136,8 +133,8 @@ __kernel void resizeNN(__global const uchar* srcptr, int srcstep, int srcoffset,
 
     if( dx < dstcols && dy < dstrows )
     {
-        F s1 = dx*ifx;
-        F s2 = dy*ify;
+        float s1 = dx*ifx;
+        float s2 = dy*ify;
         int sx = min(convert_int_rtz(s1), srccols-1);
         int sy = min(convert_int_rtz(s2), srcrows-1);
 
@@ -147,5 +144,92 @@ __kernel void resizeNN(__global const uchar* srcptr, int srcstep, int srcoffset,
         dst[0] = src[0];
     }
 }
+
+#elif defined INTER_AREA
+
+#define TSIZE ((int)(sizeof(T)))
+
+#ifdef INTER_AREA_FAST
+
+__kernel void resizeAREA_FAST(__global const uchar * src, int src_step, int src_offset, int src_rows, int src_cols,
+                              __global uchar * dst, int dst_step, int dst_offset, int dst_rows, int dst_cols,
+                              __global const int * dmap_tab, __global const int * smap_tab)
+{
+    int dx = get_global_id(0);
+    int dy = get_global_id(1);
+
+    if (dx < dst_cols && dy < dst_rows)
+    {
+        int dst_index = mad24(dy, dst_step, dst_offset);
+
+        __global const int * xmap_tab = dmap_tab;
+        __global const int * ymap_tab = dmap_tab + dst_cols;
+        __global const int * sxmap_tab = smap_tab;
+        __global const int * symap_tab = smap_tab + XSCALE * dst_cols;
+
+        int sx = xmap_tab[dx], sy = ymap_tab[dy];
+        WTV sum = (WTV)(0);
+
+        #pragma unroll
+        for (int y = 0; y < YSCALE; ++y)
+        {
+            int src_index = mad24(symap_tab[y + sy], src_step, src_offset);
+            #pragma unroll
+            for (int x = 0; x < XSCALE; ++x)
+                sum += convertToWTV(((__global const T*)(src + src_index))[sxmap_tab[sx + x]]);
+        }
+
+        ((__global T*)(dst + dst_index))[dx] = convertToT(convertToWT2V(sum) * (WT2V)(SCALE));
+    }
+}
+
+#else
+
+__kernel void resizeAREA(__global const uchar * src, int src_step, int src_offset, int src_rows, int src_cols,
+                         __global uchar * dst, int dst_step, int dst_offset, int dst_rows, int dst_cols,
+                         float ifx, float ify, __global const int * ofs_tab,
+                         __global const int * map_tab, __global const float * alpha_tab)
+{
+    int dx = get_global_id(0);
+    int dy = get_global_id(1);
+
+    if (dx < dst_cols && dy < dst_rows)
+    {
+        int dst_index = mad24(dy, dst_step, dst_offset);
+
+        __global const int * xmap_tab = map_tab;
+        __global const int * ymap_tab = (__global const int *)(map_tab + (src_cols << 1));
+        __global const float * xalpha_tab = alpha_tab;
+        __global const float * yalpha_tab = (__global const float *)(alpha_tab + (src_cols << 1));
+        __global const int * xofs_tab = ofs_tab;
+        __global const int * yofs_tab = (__global const int *)(ofs_tab + dst_cols + 1);
+
+        int xk0 = xofs_tab[dx], xk1 = xofs_tab[dx + 1];
+        int yk0 = yofs_tab[dy], yk1 = yofs_tab[dy + 1];
+
+        int sy0 = ymap_tab[yk0], sy1 = ymap_tab[yk1 - 1];
+        int sx0 = xmap_tab[xk0], sx1 = xmap_tab[xk1 - 1];
+
+        WTV sum = (WTV)(0), buf;
+        int src_index = mad24(sy0, src_step, src_offset);
+
+        for (int sy = sy0, yk = yk0; sy <= sy1; ++sy, src_index += src_step, ++yk)
+        {
+            WTV beta = (WTV)(yalpha_tab[yk]);
+            buf = (WTV)(0);
+
+            for (int sx = sx0, xk = xk0; sx <= sx1; ++sx, ++xk)
+            {
+                WTV alpha = (WTV)(xalpha_tab[xk]);
+                buf += convertToWTV(((__global const T*)(src + src_index))[sx]) * alpha;
+            }
+            sum += buf * beta;
+        }
+
+        ((__global T*)(dst + dst_index))[dx] = convertToT(sum);
+    }
+}
+
+#endif
 
 #endif

@@ -42,10 +42,10 @@
 #ifndef __OPENCV_TS_OCL_TEST_HPP__
 #define __OPENCV_TS_OCL_TEST_HPP__
 
-#ifdef HAVE_OPENCL
-
-#include "cvconfig.h"
+#include "cvconfig.h" // to get definition of HAVE_OPENCL
 #include "opencv2/opencv_modules.hpp"
+
+#ifdef HAVE_OPENCL
 
 #include "opencv2/ts.hpp"
 
@@ -59,6 +59,31 @@ namespace ocl {
 
 using namespace cv;
 using namespace testing;
+
+namespace traits {
+
+template <typename T>
+struct GetMatForRead
+{
+};
+template <>
+struct GetMatForRead<Mat>
+{
+    static const Mat get(const Mat& m) { return m; }
+};
+template <>
+struct GetMatForRead<UMat>
+{
+    static const Mat get(const UMat& m) { return m.getMat(ACCESS_READ); }
+};
+
+} // namespace traits
+
+template <typename T>
+const Mat getMatForRead(const T& mat)
+{
+    return traits::GetMatForRead<T>::get(mat);
+}
 
 extern int test_loop_times;
 
@@ -85,6 +110,26 @@ extern int test_loop_times;
        << cv::format("Size: %d x %d", mat1.size().width, mat1.size().height) << std::endl; \
 }
 
+#define OCL_EXPECT_MATS_NEAR(name, eps) \
+{ \
+    EXPECT_MAT_NEAR(name ## _roi, u ## name ## _roi, eps); \
+    int nextValue = rng.next(); \
+    RNG dataRng1(nextValue), dataRng2(nextValue); \
+    dataRng1.fill(name ## _roi, RNG::UNIFORM, Scalar::all(-MAX_VALUE), Scalar::all(MAX_VALUE)); \
+    dataRng2.fill(u ## name ## _roi, RNG::UNIFORM, Scalar::all(-MAX_VALUE), Scalar::all(MAX_VALUE)); \
+    EXPECT_MAT_NEAR(name, u ## name, 0/*FLT_EPSILON*/); \
+}
+
+#define OCL_EXPECT_MATS_NEAR_RELATIVE(name, eps) \
+{ \
+    EXPECT_MAT_NEAR_RELATIVE(name ## _roi, u ## name ## _roi, eps); \
+    int nextValue = rng.next(); \
+    RNG dataRng1(nextValue), dataRng2(nextValue); \
+    dataRng1.fill(name ## _roi, RNG::UNIFORM, Scalar::all(-MAX_VALUE), Scalar::all(MAX_VALUE)); \
+    dataRng2.fill(u ## name ## _roi, RNG::UNIFORM, Scalar::all(-MAX_VALUE), Scalar::all(MAX_VALUE)); \
+    EXPECT_MAT_NEAR_RELATIVE(name, u ## name, 0/*FLT_EPSILON*/); \
+}
+
 #define EXPECT_MAT_SIMILAR(mat1, mat2, eps) \
 { \
     ASSERT_EQ(mat1.type(), mat2.type()); \
@@ -98,7 +143,7 @@ using perf::MatType;
 
 #define OCL_RNG_SEED 123456
 
-struct TestUtils
+struct CV_EXPORTS TestUtils
 {
     cv::RNG rng;
 
@@ -203,49 +248,49 @@ struct TestUtils
     template <typename T1>
     static double checkNorm(const T1& m)
     {
-        return checkNorm(cv::getMatForRead(m));
+        return checkNorm(getMatForRead(m));
     }
     template <typename T1, typename T2>
     static double checkNorm(const T1& m1, const T2& m2)
     {
-        return checkNorm(cv::getMatForRead(m1), cv::getMatForRead(m2));
+        return checkNorm(getMatForRead(m1), getMatForRead(m2));
     }
     template <typename T1, typename T2>
     static double checkSimilarity(const T1& m1, const T2& m2)
     {
-        return checkSimilarity(cv::getMatForRead(m1), cv::getMatForRead(m2));
+        return checkSimilarity(getMatForRead(m1), getMatForRead(m2));
     }
     template <typename T1, typename T2>
     static inline double checkNormRelative(const T1& m1, const T2& m2)
     {
-        const Mat _m1 = cv::getMatForRead(m1);
-        const Mat _m2 = cv::getMatForRead(m2);
+        const Mat _m1 = getMatForRead(m1);
+        const Mat _m2 = getMatForRead(m2);
         return checkNormRelative(_m1, _m2);
     }
 
     template <typename T1, typename T2, typename T3>
     static void showDiff(const T1& src, const T2& gold, const T3& actual, double eps, bool alwaysShow = false)
     {
-        const Mat _src = cv::getMatForRead(src);
-        const Mat _gold = cv::getMatForRead(gold);
-        const Mat _actual = cv::getMatForRead(actual);
+        const Mat _src = getMatForRead(src);
+        const Mat _gold = getMatForRead(gold);
+        const Mat _actual = getMatForRead(actual);
         showDiff(_src, _gold, _actual, eps, alwaysShow);
     }
 };
 
-#define TEST_DECLARE_INPUT_PARATEMER(name) Mat name, name ## _roi; UMat u ## name, u ## name ## _roi;
-#define TEST_DECLARE_OUTPUT_PARATEMER(name) TEST_DECLARE_INPUT_PARATEMER(name)
+#define TEST_DECLARE_INPUT_PARAMETER(name) Mat name, name ## _roi; UMat u ## name, u ## name ## _roi;
+#define TEST_DECLARE_OUTPUT_PARAMETER(name) TEST_DECLARE_INPUT_PARAMETER(name)
 
 #define UMAT_UPLOAD_INPUT_PARAMETER(name) \
 { \
     name.copyTo(u ## name); \
-    Size wholeSize; Point ofs; name ## _roi.locateROI(wholeSize, ofs); \
+    Size _wholeSize; Point ofs; name ## _roi.locateROI(_wholeSize, ofs); \
     u ## name ## _roi = u ## name(Rect(ofs.x, ofs.y, name ## _roi.size().width, name ## _roi.size().height)); \
 }
 #define UMAT_UPLOAD_OUTPUT_PARAMETER(name) UMAT_UPLOAD_INPUT_PARAMETER(name)
 
 template <typename T>
-struct TSTestWithParam : public TestUtils, public ::testing::TestWithParam<T>
+struct CV_EXPORTS TSTestWithParam : public TestUtils, public ::testing::TestWithParam<T>
 {
 
 };
@@ -279,6 +324,10 @@ IMPLEMENT_PARAM_CLASS(Channels, int)
 
 #define OCL_ALL_DEPTHS Values(CV_8U, CV_8S, CV_16U, CV_16S, CV_32S, CV_32F, CV_64F)
 #define OCL_ALL_CHANNELS Values(1, 2, 3, 4)
+
+CV_ENUM(Interpolation, INTER_NEAREST, INTER_LINEAR, INTER_CUBIC, INTER_AREA)
+CV_ENUM(ThreshOp, THRESH_BINARY, THRESH_BINARY_INV, THRESH_TRUNC, THRESH_TOZERO, THRESH_TOZERO_INV)
+CV_ENUM(BorderType, BORDER_CONSTANT, BORDER_REPLICATE, BORDER_REFLECT, BORDER_WRAP, BORDER_REFLECT_101)
 
 #define OCL_INSTANTIATE_TEST_CASE_P(prefix, test_case_name, generator) \
     INSTANTIATE_TEST_CASE_P(OCL_ ## prefix, test_case_name, generator)

@@ -44,6 +44,8 @@
 #ifndef __OPENCV_OCL_MATRIX_OPERATIONS_HPP__
 #define __OPENCV_OCL_MATRIX_OPERATIONS_HPP__
 
+#include "opencv2/ocl.hpp"
+
 namespace cv
 {
 
@@ -452,36 +454,6 @@ namespace cv
         inline bool oclMat::empty() const
         {
             return data == 0;
-        }
-
-
-
-        inline uchar *oclMat::ptr(int y)
-        {
-            CV_DbgAssert( (unsigned)y < (unsigned)rows );
-            CV_Error(Error::GpuNotSupported, "This function hasn't been supported yet.\n");
-            return data + step * y;
-        }
-
-        inline const uchar *oclMat::ptr(int y) const
-        {
-            CV_DbgAssert( (unsigned)y < (unsigned)rows );
-            CV_Error(Error::GpuNotSupported, "This function hasn't been supported yet.\n");
-            return data + step * y;
-        }
-
-        template<typename _Tp> inline _Tp *oclMat::ptr(int y)
-        {
-            CV_DbgAssert( (unsigned)y < (unsigned)rows );
-            CV_Error(Error::GpuNotSupported, "This function hasn't been supported yet.\n");
-            return (_Tp *)(data + step * y);
-        }
-
-        template<typename _Tp> inline const _Tp *oclMat::ptr(int y) const
-        {
-            CV_DbgAssert( (unsigned)y < (unsigned)rows );
-            CV_Error(Error::GpuNotSupported, "This function hasn't been supported yet.\n");
-            return (const _Tp *)(data + step * y);
         }
 
         inline oclMat oclMat::t() const
