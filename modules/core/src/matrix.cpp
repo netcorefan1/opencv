@@ -56,7 +56,10 @@ void MatAllocator::map(UMatData*, int) const
 void MatAllocator::unmap(UMatData* u) const
 {
     if(u->urefcount == 0 && u->refcount == 0)
+    {
         deallocate(u);
+        u = NULL;
+    }
 }
 
 void MatAllocator::download(UMatData* u, void* dstptr,
@@ -134,11 +137,11 @@ void MatAllocator::copy(UMatData* usrc, UMatData* udst, int dims, const size_t s
     {
         CV_Assert( sz[i] <= (size_t)INT_MAX );
         if( sz[i] == 0 )
-        return;
+            return;
         if( srcofs )
-        srcptr += srcofs[i]*(i <= dims-2 ? srcstep[i] : 1);
+            srcptr += srcofs[i]*(i <= dims-2 ? srcstep[i] : 1);
         if( dstofs )
-        dstptr += dstofs[i]*(i <= dims-2 ? dststep[i] : 1);
+            dstptr += dstofs[i]*(i <= dims-2 ? dststep[i] : 1);
         isz[i] = (int)sz[i];
     }
 
@@ -179,7 +182,6 @@ public:
         UMatData* u = new UMatData(this);
         u->data = u->origdata = data;
         u->size = total;
-        u->refcount = data0 == 0;
         if(data0)
             u->flags |= UMatData::USER_ALLOCATED;
 
@@ -195,6 +197,8 @@ public:
 
     void deallocate(UMatData* u) const
     {
+        CV_Assert(u->urefcount >= 0);
+        CV_Assert(u->refcount >= 0);
         if(u && u->refcount == 0)
         {
             if( !(u->flags & UMatData::USER_ALLOCATED) )
@@ -392,6 +396,7 @@ void Mat::create(int d, const int* _sizes, int _type)
         CV_Assert( step[dims-1] == (size_t)CV_ELEM_SIZE(flags) );
     }
 
+    addref();
     finalizeHdr(*this);
 }
 
@@ -409,6 +414,7 @@ void Mat::deallocate()
 {
     if(u)
         (u->currAllocator ? u->currAllocator : allocator ? allocator : getStdAllocator())->unmap(u);
+    u = NULL;
 }
 
 Mat::Mat(const Mat& m, const Range& _rowRange, const Range& _colRange)
@@ -1424,6 +1430,16 @@ Size _InputArray::size(int i) const
         return vv[i].size();
     }
 
+    if( k == STD_VECTOR_UMAT )
+    {
+        const std::vector<UMat>& vv = *(const std::vector<UMat>*)obj;
+        if( i < 0 )
+            return vv.empty() ? Size() : Size((int)vv.size(), 1);
+        CV_Assert( i < (int)vv.size() );
+
+        return vv[i].size();
+    }
+
     if( k == OPENGL_BUFFER )
     {
         CV_Assert( i < 0 );
@@ -2256,6 +2272,12 @@ void _OutputArray::release() const
         return;
     }
 
+    if( k == UMAT )
+    {
+        ((UMat*)obj)->release();
+        return;
+    }
+
     if( k == GPU_MAT )
     {
         ((cuda::GpuMat*)obj)->release();
@@ -2292,6 +2314,12 @@ void _OutputArray::release() const
     if( k == STD_VECTOR_MAT )
     {
         ((std::vector<Mat>*)obj)->clear();
+        return;
+    }
+
+    if( k == STD_VECTOR_UMAT )
+    {
+        ((std::vector<UMat>*)obj)->clear();
         return;
     }
 
@@ -2754,39 +2782,24 @@ void cv::transpose( InputArray _src, OutputArray _dst )
 }
 
 
+////////////////////////////////////// completeSymm /////////////////////////////////////////
+
 void cv::completeSymm( InputOutputArray _m, bool LtoR )
 {
     Mat m = _m.getMat();
-    CV_Assert( m.dims <= 2 );
+    size_t step = m.step, esz = m.elemSize();
+    CV_Assert( m.dims <= 2 && m.rows == m.cols );
 
-    int i, j, nrows = m.rows, type = m.type();
-    int j0 = 0, j1 = nrows;
-    CV_Assert( m.rows == m.cols );
+    int rows = m.rows;
+    int j0 = 0, j1 = rows;
 
-    if( type == CV_32FC1 || type == CV_32SC1 )
+    uchar* data = m.data;
+    for( int i = 0; i < rows; i++ )
     {
-        int* data = (int*)m.data;
-        size_t step = m.step/sizeof(data[0]);
-        for( i = 0; i < nrows; i++ )
-        {
-            if( !LtoR ) j1 = i; else j0 = i+1;
-            for( j = j0; j < j1; j++ )
-                data[i*step + j] = data[j*step + i];
-        }
+        if( !LtoR ) j1 = i; else j0 = i+1;
+        for( int j = j0; j < j1; j++ )
+            memcpy(data + (i*step + j*esz), data + (j*step + i*esz), esz);
     }
-    else if( type == CV_64FC1 )
-    {
-        double* data = (double*)m.data;
-        size_t step = m.step/sizeof(data[0]);
-        for( i = 0; i < nrows; i++ )
-        {
-            if( !LtoR ) j1 = i; else j0 = i+1;
-            for( j = j0; j < j1; j++ )
-                data[i*step + j] = data[j*step + i];
-        }
-    }
-    else
-        CV_Error( CV_StsUnsupportedFormat, "" );
 }
 
 
