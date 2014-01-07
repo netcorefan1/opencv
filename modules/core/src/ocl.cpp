@@ -3624,6 +3624,13 @@ MatAllocator* getOpenCLAllocator()
     return &allocator;
 }
 
+MatAllocator* getOpenCLAllocator(MatAllocator* matAllocator)
+{
+   OpenCLAllocator* allocator = new OpenCLAllocator();
+   allocator->matStdAllocator = matAllocator;
+   return allocator;
+}
+
 const char* typeToStr(int t)
 {
     static const char* tab[]=

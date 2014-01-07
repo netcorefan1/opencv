@@ -263,6 +263,7 @@ extern TLSData<CoreTLSData> coreTlsData;
 namespace ocl
 {
     MatAllocator* getOpenCLAllocator();
+    MatAllocator* getOpenCLAllocator(MatAllocator* matAllocator);
 }
 
 extern bool __termination; // skip some cleanups, because process is terminating

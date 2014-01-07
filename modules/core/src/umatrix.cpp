@@ -91,6 +91,13 @@ MatAllocator* UMat::getStdAllocator()
     return Mat::getStdAllocator();
 }
 
+MatAllocator* UMat::getStdAllocator(MatAllocator* matAllocator)
+{
+   if (ocl::haveOpenCL())
+      return ocl::getOpenCLAllocator(matAllocator);
+   return matAllocator;
+}
+
 void swap( UMat& a, UMat& b )
 {
     std::swap(a.flags, b.flags);
