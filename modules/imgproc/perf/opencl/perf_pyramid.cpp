@@ -10,10 +10,13 @@
 //                           License Agreement
 //                For Open Source Computer Vision Library
 //
-// Copyright (C) 2010-2012, Institute Of Software Chinese Academy Of Science, all rights reserved.
+// Copyright (C) 2010-2012, Multicoreware, Inc., all rights reserved.
 // Copyright (C) 2010-2012, Advanced Micro Devices, Inc., all rights reserved.
-// Copyright (C) 2013, OpenCV Foundation, all rights reserved.
 // Third party copyrights are property of their respective owners.
+//
+// @Authors
+//    Fangfang Bai, fangfang@multicorewareinc.com
+//    Jin Ma,       jin@multicorewareinc.com
 //
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
@@ -31,7 +34,7 @@
 // This software is provided by the copyright holders and contributors as is and
 // any express or implied warranties, including, but not limited to, the implied
 // warranties of merchantability and fitness for a particular purpose are disclaimed.
-// In no event shall the copyright holders or contributors be liable for any direct,
+// In no event shall the Intel Corporation or contributors be liable for any direct,
 // indirect, incidental, special, exemplary, or consequential damages
 // (including, but not limited to, procurement of substitute goods or services;
 // loss of use, data, or profits; or business interruption) however caused
@@ -41,24 +44,62 @@
 //
 //M*/
 
-#define DECLARE_INPUT_MAT(i) \
-    __global const uchar * src##i##ptr, int src##i##_step, int src##i##_offset,
-#define DECLARE_OUTPUT_MAT(i) \
-    __global uchar * dst##i##ptr, int dst##i##_step, int dst##i##_offset,
-#define PROCESS_ELEM(i) \
-    int src##i##_index = mad24(src##i##_step, y, x * (int)sizeof(T) * scn##i + src##i##_offset); \
-    __global const T * src##i = (__global const T *)(src##i##ptr + src##i##_index); \
-    int dst##i##_index = mad24(dst##i##_step, y, x * (int)sizeof(T) * dcn##i + dst##i##_offset); \
-    __global T * dst##i = (__global T *)(dst##i##ptr + dst##i##_index); \
-    dst##i[0] = src##i[0];
+#include "perf_precomp.hpp"
+#include "opencv2/ts/ocl_perf.hpp"
 
-__kernel void mixChannels(DECLARE_INPUT_MATS DECLARE_OUTPUT_MATS int rows, int cols)
+#ifdef HAVE_OPENCL
+
+namespace cvtest {
+namespace ocl {
+
+///////////// PyrDown //////////////////////
+
+typedef Size_MatType PyrDownFixture;
+
+OCL_PERF_TEST_P(PyrDownFixture, PyrDown,
+            ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES))
 {
-    int x = get_global_id(0);
-    int y = get_global_id(1);
+    const Size_MatType_t params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params);
+    const Size dstSize((srcSize.height + 1) >> 1, (srcSize.width + 1) >> 1);
+    const double eps = CV_MAT_DEPTH(type) <= CV_32S ? 1 : 1e-5;
 
-    if (x < cols && y < rows)
-    {
-        PROCESS_ELEMS
-    }
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
+    checkDeviceMaxMemoryAllocSize(dstSize, type);
+
+    UMat src(srcSize, type), dst(dstSize, type);
+    declare.in(src, WARMUP_RNG).out(dst);
+
+    OCL_TEST_CYCLE() cv::pyrDown(src, dst);
+
+    SANITY_CHECK(dst, eps);
 }
+
+///////////// PyrUp ////////////////////////
+
+typedef Size_MatType PyrUpFixture;
+
+OCL_PERF_TEST_P(PyrUpFixture, PyrUp,
+            ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES))
+{
+    const Size_MatType_t params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params);
+    const Size dstSize(srcSize.height << 1, srcSize.width << 1);
+    const double eps = CV_MAT_DEPTH(type) <= CV_32S ? 1 : 1e-5;
+
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
+    checkDeviceMaxMemoryAllocSize(dstSize, type);
+
+    UMat src(srcSize, type), dst(dstSize, type);
+    declare.in(src, WARMUP_RNG).out(dst);
+
+    OCL_TEST_CYCLE() cv::pyrDown(src, dst);
+
+    SANITY_CHECK(dst, eps);
+}
+
+} } // namespace cvtest::ocl
+
+#endif // HAVE_OPENCL

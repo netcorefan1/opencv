@@ -7,12 +7,16 @@
 //  copy or use the software.
 //
 //
-//                          License Agreement
+//                           License Agreement
 //                For Open Source Computer Vision Library
 //
-// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
-// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
+// Copyright (C) 2010-2012, Multicoreware, Inc., all rights reserved.
+// Copyright (C) 2010-2012, Advanced Micro Devices, Inc., all rights reserved.
 // Third party copyrights are property of their respective owners.
+//
+// @Authors
+//    Fangfang Bai, fangfang@multicorewareinc.com
+//    Jin Ma,       jin@multicorewareinc.com
 //
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
@@ -27,7 +31,7 @@
 //   * The name of the copyright holders may not be used to endorse or promote products
 //     derived from this software without specific prior written permission.
 //
-// This software is provided by the copyright holders and contributors "as is" and
+// This software is provided by the copyright holders and contributors as is and
 // any express or implied warranties, including, but not limited to, the implied
 // warranties of merchantability and fitness for a particular purpose are disclaimed.
 // In no event shall the Intel Corporation or contributors be liable for any direct,
@@ -40,61 +44,39 @@
 //
 //M*/
 
-#ifndef __OPENCV_STITCHING_PRECOMP_H__
-#define __OPENCV_STITCHING_PRECOMP_H__
+#include "perf_precomp.hpp"
+#include "opencv2/ts/ocl_perf.hpp"
 
-#include "opencv2/opencv_modules.hpp"
+#ifdef HAVE_OPENCL
 
-#include <vector>
-#include <algorithm>
-#include <utility>
-#include <set>
-#include <functional>
-#include <sstream>
-#include <cmath>
-#include "opencv2/core.hpp"
-#include "opencv2/core/ocl.hpp"
-#include "opencv2/core/utility.hpp"
-#include "opencv2/stitching.hpp"
-#include "opencv2/stitching/detail/autocalib.hpp"
-#include "opencv2/stitching/detail/blenders.hpp"
-#include "opencv2/stitching/detail/camera.hpp"
-#include "opencv2/stitching/detail/exposure_compensate.hpp"
-#include "opencv2/stitching/detail/matchers.hpp"
-#include "opencv2/stitching/detail/motion_estimators.hpp"
-#include "opencv2/stitching/detail/seam_finders.hpp"
-#include "opencv2/stitching/detail/util.hpp"
-#include "opencv2/stitching/detail/warpers.hpp"
-#include "opencv2/imgproc.hpp"
-#include "opencv2/features2d.hpp"
-#include "opencv2/calib3d.hpp"
+namespace cvtest {
+namespace ocl {
 
-#ifdef HAVE_OPENCV_CUDAARITHM
-#  include "opencv2/cudaarithm.hpp"
-#endif
+///////////// BlendLinear ////////////////////////
 
-#ifdef HAVE_OPENCV_CUDAWARPING
-#  include "opencv2/cudawarping.hpp"
-#endif
+typedef Size_MatType BlendLinearFixture;
 
-#ifdef HAVE_OPENCV_CUDAFEATURES2D
-#  include "opencv2/cudafeatures2d.hpp"
-#endif
+OCL_PERF_TEST_P(BlendLinearFixture, BlendLinear, ::testing::Combine(OCL_TEST_SIZES, OCL_PERF_ENUM(CV_32FC1, CV_32FC4)))
+{
+    Size_MatType_t params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int srcType = get<1>(params);
+    const double eps = CV_MAT_DEPTH(srcType) <= CV_32S ? 1.0 : 0.2;
 
-#ifdef HAVE_OPENCV_CUDA
-#  include "opencv2/cuda.hpp"
-#endif
+    checkDeviceMaxMemoryAllocSize(srcSize, srcType);
 
-#ifdef HAVE_OPENCV_NONFREE
-#  include "opencv2/nonfree/cuda.hpp"
-#endif
+    UMat src1(srcSize, srcType), src2(srcSize, srcType), dst(srcSize, srcType);
+    UMat weights1(srcSize, CV_32FC1), weights2(srcSize, CV_32FC1);
 
-#include "../../imgproc/src/gcgraph.hpp"
+    declare.in(src1, src2, WARMUP_RNG).in(weights1, weights2, WARMUP_READ).out(dst);
+    randu(weights1, 0, 1);
+    randu(weights2, 0, 1);
 
-#include "opencv2/core/private.hpp"
+    OCL_TEST_CYCLE() cv::blendLinear(src1, src2, weights1, weights2, dst);
 
-#ifdef HAVE_TEGRA_OPTIMIZATION
-# include "opencv2/stitching/stitching_tegra.hpp"
-#endif
+    SANITY_CHECK(dst, eps);
+}
 
-#endif
+} } // namespace cvtest::ocl
+
+#endif // HAVE_OPENCL
