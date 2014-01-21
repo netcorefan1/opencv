@@ -251,16 +251,16 @@ void vBinOp64(const T* src1, size_t step1, const T* src2, size_t step2,
     template <>                                                                                  \
     struct name<template_arg>{                                                                   \
         typedef register_type reg_type;                                                          \
-        static reg_type load(const template_arg * p) { return load_body ((const reg_type *)p);}; \
-        static void store(template_arg * p, reg_type v) { store_body ((reg_type *)p, v);};       \
+        static reg_type load(const template_arg * p) { return load_body ((const reg_type *)p); } \
+        static void store(template_arg * p, reg_type v) { store_body ((reg_type *)p, v); }       \
     }
 
 #define FUNCTOR_LOADSTORE(name, template_arg, register_type, load_body, store_body)\
     template <>                                                                \
     struct name<template_arg>{                                                 \
         typedef register_type reg_type;                                        \
-        static reg_type load(const template_arg * p) { return load_body (p);}; \
-        static void store(template_arg * p, reg_type v) { store_body (p, v);}; \
+        static reg_type load(const template_arg * p) { return load_body (p); } \
+        static void store(template_arg * p, reg_type v) { store_body (p, v); } \
     }
 
 #define FUNCTOR_CLOSURE_2arg(name, template_arg, body)\
@@ -1434,8 +1434,8 @@ static void arithm_op(InputArray _src1, InputArray _src2, OutputArray _dst,
     bool haveScalar = false, swapped12 = false;
 
     if( dims1 != dims2 || sz1 != sz2 || cn != cn2 ||
-        ((kind1 == _InputArray::MATX || kind2 == _InputArray::MATX) &&
-         (sz1 == Size(1,4) || sz2 == Size(1,4))) )
+        (kind1 == _InputArray::MATX && (sz1 == Size(1,4) || sz1 == Size(1,1))) ||
+        (kind2 == _InputArray::MATX && (sz2 == Size(1,4) || sz2 == Size(1,1))) )
     {
         if( checkScalar(*psrc1, type2, kind1, kind2) )
         {
