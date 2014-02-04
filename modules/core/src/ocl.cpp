@@ -615,7 +615,7 @@ static void* initOpenCLAndLoad(const char* funcname)
             initialized = true;
             g_haveOpenCL = handle != 0 && dlsym(handle, oclFuncToCheck) != 0;
             if( g_haveOpenCL )
-                fprintf(stderr, "Succesffuly loaded OpenCL v1.1+ runtime from %s\n", oclpath);
+                fprintf(stderr, "Successfully loaded OpenCL v1.1+ runtime from %s\n", oclpath);
             else
                 fprintf(stderr, "Failed to load OpenCL runtime\n");
         }
@@ -821,6 +821,7 @@ OCL_FUNC_P(cl_mem, clCreateSubBuffer,
     const void * buffer_create_info,
     cl_int * errcode_ret),
     (buffer, flags, buffer_create_type, buffer_create_info, errcode_ret))
+*/
 
 OCL_FUNC_P(cl_mem, clCreateImage,
     (cl_context context,
@@ -831,6 +832,18 @@ OCL_FUNC_P(cl_mem, clCreateImage,
     cl_int * errcode_ret),
     (context, flags, image_format, image_desc, host_ptr, errcode_ret))
 
+OCL_FUNC_P(cl_mem, clCreateImage2D,
+    (cl_context context,
+    cl_mem_flags flags,
+    const cl_image_format * image_format,
+    size_t image_width,
+    size_t image_height,
+    size_t image_row_pitch,
+    void * host_ptr,
+    cl_int *errcode_ret),
+    (context, flags, image_format, image_width, image_height, image_row_pitch, host_ptr, errcode_ret))
+
+/*
 OCL_FUNC(cl_int, clGetSupportedImageFormats,
  (cl_context context,
  cl_mem_flags flags,
@@ -945,21 +958,26 @@ OCL_FUNC(cl_int, clEnqueueCopyImageToBuffer,
  cl_event * event),
  (command_queue, src_image, dst_buffer, src_origin, region, dst_offset,
  num_events_in_wait_list, event_wait_list, event))
+*/
 
 OCL_FUNC(cl_int, clEnqueueCopyBufferToImage,
  (cl_command_queue command_queue,
  cl_mem src_buffer,
  cl_mem dst_image,
  size_t src_offset,
- const size_t * dst_origin[3],
- const size_t * region[3],
+ const size_t dst_origin[3],
+ const size_t region[3],
  cl_uint num_events_in_wait_list,
  const cl_event * event_wait_list,
  cl_event * event),
  (command_queue, src_buffer, dst_image, src_offset, dst_origin,
  region, num_events_in_wait_list, event_wait_list, event))
 
+ OCL_FUNC(cl_int, clFlush,
+ (cl_command_queue command_queue),
+ (command_queue))
 
+/*
 OCL_FUNC_P(void*, clEnqueueMapImage,
  (cl_command_queue command_queue,
  cl_mem image,
@@ -976,7 +994,9 @@ OCL_FUNC_P(void*, clEnqueueMapImage,
  (command_queue, image, blocking_map, map_flags, origin, region,
  image_row_pitch, image_slice_pitch, num_events_in_wait_list,
  event_wait_list, event, errcode_ret))
+*/
 
+/*
 OCL_FUNC(cl_int, clRetainProgram, (cl_program program), (program))
 
 OCL_FUNC(cl_int, clGetKernelInfo,
@@ -1237,6 +1257,12 @@ OCL_FUNC(cl_int, clReleaseEvent, (cl_event event), (event))
 
 #endif
 
+#ifdef _DEBUG
+#define CV_OclDbgAssert CV_DbgAssert
+#else
+#define CV_OclDbgAssert(expr) (void)(expr)
+#endif
+
 namespace cv { namespace ocl {
 
 struct UMat2D
@@ -1315,11 +1341,13 @@ inline bool operator < (const HashKey& h1, const HashKey& h2)
     return h1.a < h2.a || (h1.a == h2.a && h1.b < h2.b);
 }
 
-static bool g_isOpenCLInitialized = false;
-static bool g_isOpenCLAvailable = false;
 
 bool haveOpenCL()
 {
+#ifdef HAVE_OPENCL
+    static bool g_isOpenCLInitialized = false;
+    static bool g_isOpenCLAvailable = false;
+
     if (!g_isOpenCLInitialized)
     {
         try
@@ -1334,6 +1362,9 @@ bool haveOpenCL()
         g_isOpenCLInitialized = true;
     }
     return g_isOpenCLAvailable;
+#else
+    return false;
+#endif
 }
 
 bool useOpenCL()
@@ -1514,6 +1545,8 @@ void finish2()
     void release() { if( CV_XADD(&refcount, -1) == 1 ) delete this; } \
     int refcount
 
+/////////////////////////////////////////// Platform /////////////////////////////////////////////
+
 struct Platform::Impl
 {
     Impl()
@@ -1531,13 +1564,13 @@ struct Platform::Impl
         {
             //cl_uint num_entries
             cl_uint n = 0;
-            if( clGetPlatformIDs(1, &handle, &n) < 0 || n == 0 )
+            if( clGetPlatformIDs(1, &handle, &n) != CL_SUCCESS || n == 0 )
                 handle = 0;
             if( handle != 0 )
             {
                 char buf[1000];
                 size_t len = 0;
-                clGetPlatformInfo(handle, CL_PLATFORM_VENDOR, sizeof(buf), buf, &len);
+                CV_OclDbgAssert(clGetPlatformInfo(handle, CL_PLATFORM_VENDOR, sizeof(buf), buf, &len) == CL_SUCCESS);
                 buf[len] = '\0';
                 vendor = String(buf);
             }
@@ -1598,7 +1631,29 @@ Platform& Platform::getDefault()
     return p;
 }
 
-///////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////// Device ////////////////////////////////////////////
+
+// deviceVersion has format
+//   OpenCL<space><major_version.minor_version><space><vendor-specific information>
+// by specification
+//   http://www.khronos.org/registry/cl/sdk/1.1/docs/man/xhtml/clGetDeviceInfo.html
+//   http://www.khronos.org/registry/cl/sdk/1.2/docs/man/xhtml/clGetDeviceInfo.html
+static void parseDeviceVersion(const String &deviceVersion, int &major, int &minor)
+{
+    major = minor = 0;
+    if (10 >= deviceVersion.length())
+        return;
+    const char *pstr = deviceVersion.c_str();
+    if (0 != strncmp(pstr, "OpenCL ", 7))
+        return;
+    size_t ppos = deviceVersion.find('.', 7);
+    if (String::npos == ppos)
+        return;
+    String temp = deviceVersion.substr(7, ppos - 7);
+    major = atoi(temp.c_str());
+    temp = deviceVersion.substr(ppos + 1);
+    minor = atoi(temp.c_str());
+}
 
 struct Device::Impl
 {
@@ -1606,6 +1661,18 @@ struct Device::Impl
     {
         handle = (cl_device_id)d;
         refcount = 1;
+
+        name_ = getStrProp(CL_DEVICE_NAME);
+        version_ = getStrProp(CL_DEVICE_VERSION);
+        doubleFPConfig_ = getProp<cl_device_fp_config, int>(CL_DEVICE_DOUBLE_FP_CONFIG);
+        hostUnifiedMemory_ = getBoolProp(CL_DEVICE_HOST_UNIFIED_MEMORY);
+        maxComputeUnits_ = getProp<cl_uint, int>(CL_DEVICE_MAX_COMPUTE_UNITS);
+        maxWorkGroupSize_ = getProp<size_t, size_t>(CL_DEVICE_MAX_WORK_GROUP_SIZE);
+        type_ = getProp<cl_device_type, int>(CL_DEVICE_TYPE);
+        driverVersion_ = getStrProp(CL_DRIVER_VERSION);
+
+        String deviceVersion_ = getStrProp(CL_DEVICE_VERSION);
+        parseDeviceVersion(deviceVersion_, deviceVersionMajor_, deviceVersionMinor_);
     }
 
     template<typename _TpCL, typename _TpOut>
@@ -1614,7 +1681,7 @@ struct Device::Impl
         _TpCL temp=_TpCL();
         size_t sz = 0;
 
-        return clGetDeviceInfo(handle, prop, sizeof(temp), &temp, &sz) >= 0 &&
+        return clGetDeviceInfo(handle, prop, sizeof(temp), &temp, &sz) == CL_SUCCESS &&
             sz == sizeof(temp) ? _TpOut(temp) : _TpOut();
     }
 
@@ -1623,7 +1690,7 @@ struct Device::Impl
         cl_bool temp = CL_FALSE;
         size_t sz = 0;
 
-        return clGetDeviceInfo(handle, prop, sizeof(temp), &temp, &sz) >= 0 &&
+        return clGetDeviceInfo(handle, prop, sizeof(temp), &temp, &sz) == CL_SUCCESS &&
             sz == sizeof(temp) ? temp != 0 : false;
     }
 
@@ -1631,12 +1698,23 @@ struct Device::Impl
     {
         char buf[1024];
         size_t sz=0;
-        return clGetDeviceInfo(handle, prop, sizeof(buf)-16, buf, &sz) >= 0 &&
+        return clGetDeviceInfo(handle, prop, sizeof(buf)-16, buf, &sz) == CL_SUCCESS &&
             sz < sizeof(buf) ? String(buf) : String();
     }
 
     IMPLEMENT_REFCOUNTABLE();
     cl_device_id handle;
+
+    String name_;
+    String version_;
+    int doubleFPConfig_;
+    bool hostUnifiedMemory_;
+    int maxComputeUnits_;
+    size_t maxWorkGroupSize_;
+    int type_;
+    int deviceVersionMajor_;
+    int deviceVersionMinor_;
+    String driverVersion_;
 };
 
 
@@ -1688,10 +1766,13 @@ void* Device::ptr() const
 }
 
 String Device::name() const
-{ return p ? p->getStrProp(CL_DEVICE_NAME) : String(); }
+{ return p ? p->name_ : String(); }
 
 String Device::extensions() const
 { return p ? p->getStrProp(CL_DEVICE_EXTENSIONS) : String(); }
+
+String Device::version() const
+{ return p ? p->version_ : String(); }
 
 String Device::vendor() const
 { return p ? p->getStrProp(CL_DEVICE_VENDOR) : String(); }
@@ -1702,11 +1783,17 @@ String Device::OpenCL_C_Version() const
 String Device::OpenCLVersion() const
 { return p ? p->getStrProp(CL_DEVICE_EXTENSIONS) : String(); }
 
+int Device::deviceVersionMajor() const
+{ return p ? p->deviceVersionMajor_ : 0; }
+
+int Device::deviceVersionMinor() const
+{ return p ? p->deviceVersionMinor_ : 0; }
+
 String Device::driverVersion() const
-{ return p ? p->getStrProp(CL_DRIVER_VERSION) : String(); }
+{ return p ? p->driverVersion_ : String(); }
 
 int Device::type() const
-{ return p ? p->getProp<cl_device_type, int>(CL_DEVICE_TYPE) : 0; }
+{ return p ? p->type_ : 0; }
 
 int Device::addressBits() const
 { return p ? p->getProp<cl_uint, int>(CL_DEVICE_ADDRESS_BITS) : 0; }
@@ -1725,7 +1812,7 @@ bool Device::linkerAvailable() const
 #endif
 
 int Device::doubleFPConfig() const
-{ return p ? p->getProp<cl_device_fp_config, int>(CL_DEVICE_DOUBLE_FP_CONFIG) : 0; }
+{ return p ? p->doubleFPConfig_ : 0; }
 
 int Device::singleFPConfig() const
 { return p ? p->getProp<cl_device_fp_config, int>(CL_DEVICE_SINGLE_FP_CONFIG) : 0; }
@@ -1765,7 +1852,7 @@ int Device::localMemType() const
 { return p ? p->getProp<cl_device_local_mem_type, int>(CL_DEVICE_LOCAL_MEM_TYPE) : 0; }
 
 bool Device::hostUnifiedMemory() const
-{ return p ? p->getBoolProp(CL_DEVICE_HOST_UNIFIED_MEMORY) : false; }
+{ return p ? p->hostUnifiedMemory_ : false; }
 
 bool Device::imageSupport() const
 { return p ? p->getBoolProp(CL_DEVICE_IMAGE_SUPPORT) : false; }
@@ -1803,7 +1890,7 @@ int Device::maxClockFrequency() const
 { return p ? p->getProp<cl_uint, int>(CL_DEVICE_MAX_CLOCK_FREQUENCY) : 0; }
 
 int Device::maxComputeUnits() const
-{ return p ? p->getProp<cl_uint, int>(CL_DEVICE_MAX_COMPUTE_UNITS) : 0; }
+{ return p ? p->maxComputeUnits_ : 0; }
 
 int Device::maxConstantArgs() const
 { return p ? p->getProp<cl_uint, int>(CL_DEVICE_MAX_CONSTANT_ARGS) : 0; }
@@ -1827,7 +1914,7 @@ int Device::maxSamplers() const
 { return p ? p->getProp<cl_uint, int>(CL_DEVICE_MAX_SAMPLERS) : 0; }
 
 size_t Device::maxWorkGroupSize() const
-{ return p ? p->getProp<size_t, size_t>(CL_DEVICE_MAX_WORK_GROUP_SIZE) : 0; }
+{ return p ? p->maxWorkGroupSize_ : 0; }
 
 int Device::maxWorkItemDims() const
 { return p ? p->getProp<cl_uint, int>(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS) : 0; }
@@ -1838,8 +1925,8 @@ void Device::maxWorkItemSizes(size_t* sizes) const
     {
         const int MAX_DIMS = 32;
         size_t retsz = 0;
-        clGetDeviceInfo(p->handle, CL_DEVICE_MAX_WORK_ITEM_SIZES,
-                MAX_DIMS*sizeof(sizes[0]), &sizes[0], &retsz);
+        CV_OclDbgAssert(clGetDeviceInfo(p->handle, CL_DEVICE_MAX_WORK_ITEM_SIZES,
+                MAX_DIMS*sizeof(sizes[0]), &sizes[0], &retsz) == CL_SUCCESS);
     }
 }
 
@@ -1906,7 +1993,7 @@ const Device& Device::getDefault()
     return ctx.device(idx);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////// Context ///////////////////////////////////////////////////
 
 template <typename Functor, typename ObjectType>
 inline cl_int getStringInfo(Functor f, ObjectType obj, cl_uint name, std::string& param)
@@ -1930,7 +2017,8 @@ inline cl_int getStringInfo(Functor f, ObjectType obj, cl_uint name, std::string
     return CL_SUCCESS;
 }
 
-static void split(const std::string &s, char delim, std::vector<std::string> &elems) {
+static void split(const std::string &s, char delim, std::vector<std::string> &elems)
+{
     elems.clear();
     if (s.size() == 0)
         return;
@@ -1972,15 +2060,12 @@ static bool parseOpenCLDeviceConfiguration(const std::string& configurationStr,
 
 static cl_device_id selectOpenCLDevice()
 {
-    std::string platform;
+    std::string platform, deviceName;
     std::vector<std::string> deviceTypes;
-    std::string deviceName;
+
     const char* configuration = getenv("OPENCV_OPENCL_DEVICE");
-    if (configuration)
-    {
-        if (!parseOpenCLDeviceConfiguration(std::string(configuration), platform, deviceTypes, deviceName))
-            return NULL;
-    }
+    if (configuration && !parseOpenCLDeviceConfiguration(std::string(configuration), platform, deviceTypes, deviceName))
+        return NULL;
 
     bool isID = false;
     int deviceID = -1;
@@ -2003,21 +2088,20 @@ static cl_device_id selectOpenCLDevice()
         if (isID)
         {
             deviceID = atoi(deviceName.c_str());
-            CV_Assert(deviceID >= 0);
+            if (deviceID < 0)
+                return NULL;
         }
     }
 
-    cl_int status = CL_SUCCESS;
     std::vector<cl_platform_id> platforms;
     {
         cl_uint numPlatforms = 0;
-        status = clGetPlatformIDs(0, NULL, &numPlatforms);
-        CV_Assert(status == CL_SUCCESS);
+        CV_OclDbgAssert(clGetPlatformIDs(0, NULL, &numPlatforms) == CL_SUCCESS);
+
         if (numPlatforms == 0)
             return NULL;
         platforms.resize((size_t)numPlatforms);
-        status = clGetPlatformIDs(numPlatforms, &platforms[0], &numPlatforms);
-        CV_Assert(status == CL_SUCCESS);
+        CV_OclDbgAssert(clGetPlatformIDs(numPlatforms, &platforms[0], &numPlatforms) == CL_SUCCESS);
         platforms.resize(numPlatforms);
     }
 
@@ -2027,8 +2111,7 @@ static cl_device_id selectOpenCLDevice()
         for (size_t i = 0; i < platforms.size(); i++)
         {
             std::string name;
-            status = getStringInfo(clGetPlatformInfo, platforms[i], CL_PLATFORM_NAME, name);
-            CV_Assert(status == CL_SUCCESS);
+            CV_OclDbgAssert(getStringInfo(clGetPlatformInfo, platforms[i], CL_PLATFORM_NAME, name) == CL_SUCCESS);
             if (name.find(platform) != std::string::npos)
             {
                 selectedPlatform = (int)i;
@@ -2050,29 +2133,19 @@ static cl_device_id selectOpenCLDevice()
             deviceTypes.push_back("CPU");
         }
         else
-        {
             deviceTypes.push_back("ALL");
-        }
     }
     for (size_t t = 0; t < deviceTypes.size(); t++)
     {
         int deviceType = 0;
         if (deviceTypes[t] == "GPU")
-        {
             deviceType = Device::TYPE_GPU;
-        }
         else if (deviceTypes[t] == "CPU")
-        {
             deviceType = Device::TYPE_CPU;
-        }
         else if (deviceTypes[t] == "ACCELERATOR")
-        {
             deviceType = Device::TYPE_ACCELERATOR;
-        }
         else if (deviceTypes[t] == "ALL")
-        {
             deviceType = Device::TYPE_ALL;
-        }
         else
         {
             std::cerr << "ERROR: Unsupported device type for OpenCL device (GPU, CPU, ACCELERATOR): " << deviceTypes[t] << std::endl;
@@ -2085,14 +2158,14 @@ static cl_device_id selectOpenCLDevice()
                 i++)
         {
             cl_uint count = 0;
-            status = clGetDeviceIDs(platforms[i], deviceType, 0, NULL, &count);
-            CV_Assert(status == CL_SUCCESS || status == CL_DEVICE_NOT_FOUND);
+            cl_int status = clGetDeviceIDs(platforms[i], deviceType, 0, NULL, &count);
+            CV_OclDbgAssert(status == CL_SUCCESS || status == CL_DEVICE_NOT_FOUND);
             if (count == 0)
                 continue;
             size_t base = devices.size();
             devices.resize(base + count);
             status = clGetDeviceIDs(platforms[i], deviceType, count, &devices[base], &count);
-            CV_Assert(status == CL_SUCCESS || status == CL_DEVICE_NOT_FOUND);
+            CV_OclDbgAssert(status == CL_SUCCESS || status == CL_DEVICE_NOT_FOUND);
         }
 
         for (size_t i = (isID ? deviceID : 0);
@@ -2100,8 +2173,7 @@ static cl_device_id selectOpenCLDevice()
              i++)
         {
             std::string name;
-            status = getStringInfo(clGetDeviceInfo, devices[i], CL_DEVICE_NAME, name);
-            CV_Assert(status == CL_SUCCESS);
+            CV_OclDbgAssert(getStringInfo(clGetDeviceInfo, devices[i], CL_DEVICE_NAME, name) == CL_SUCCESS);
             if (isID || name.find(deviceName) != std::string::npos)
             {
                 // TODO check for OpenCL 1.1
@@ -2109,14 +2181,14 @@ static cl_device_id selectOpenCLDevice()
             }
         }
     }
+
 not_found:
     std::cerr << "ERROR: Required OpenCL device not found, check configuration: " << (configuration == NULL ? "" : configuration) << std::endl
             << "    Platform: " << (platform.length() == 0 ? "any" : platform) << std::endl
             << "    Device types: ";
     for (size_t t = 0; t < deviceTypes.size(); t++)
-    {
         std::cerr << deviceTypes[t] << " ";
-    }
+
     std::cerr << std::endl << "    Device name: " << (deviceName.length() == 0 ? "any" : deviceName) << std::endl;
     return NULL;
 }
@@ -2139,8 +2211,7 @@ struct Context2::Impl
             return;
 
         cl_platform_id pl = NULL;
-        cl_int status = clGetDeviceInfo(d, CL_DEVICE_PLATFORM, sizeof(cl_platform_id), &pl, NULL);
-        CV_Assert(status == CL_SUCCESS);
+        CV_OclDbgAssert(clGetDeviceInfo(d, CL_DEVICE_PLATFORM, sizeof(cl_platform_id), &pl, NULL) == CL_SUCCESS);
 
         cl_context_properties prop[] =
         {
@@ -2149,20 +2220,19 @@ struct Context2::Impl
         };
 
         // !!! in the current implementation force the number of devices to 1 !!!
-        int nd = 1;
+        cl_uint nd = 1;
+        cl_int status;
 
         handle = clCreateContext(prop, nd, &d, 0, 0, &status);
-        CV_Assert(status == CL_SUCCESS);
-        bool ok = handle != 0 && status >= 0;
+
+        bool ok = handle != 0 && status == CL_SUCCESS;
         if( ok )
         {
             devices.resize(nd);
             devices[0].set(d);
         }
         else
-        {
             handle = NULL;
-        }
     }
 
     Impl(int dtype0)
@@ -2180,13 +2250,12 @@ struct Context2::Impl
 
         cl_uint i, nd0 = 0, nd = 0;
         int dtype = dtype0 & 15;
-        clGetDeviceIDs( pl, dtype, 0, 0, &nd0 );
-        if(retval < 0)
-            return;
+        CV_OclDbgAssert(clGetDeviceIDs( pl, dtype, 0, 0, &nd0 ) == CL_SUCCESS);
+
         AutoBuffer<void*> dlistbuf(nd0*2+1);
         cl_device_id* dlist = (cl_device_id*)(void**)dlistbuf;
         cl_device_id* dlist_new = dlist + nd0;
-        clGetDeviceIDs(	pl, dtype, nd0, dlist, &nd0 );
+        CV_OclDbgAssert(clGetDeviceIDs(	pl, dtype, nd0, dlist, &nd0 ) == CL_SUCCESS);
         String name0;
 
         for(i = 0; i < nd0; i++)
@@ -2212,7 +2281,7 @@ struct Context2::Impl
         nd = 1;
 
         handle = clCreateContext(prop, nd, dlist_new, 0, 0, &retval);
-        bool ok = handle != 0 && retval >= 0;
+        bool ok = handle != 0 && retval == CL_SUCCESS;
         if( ok )
         {
             devices.resize(nd);
@@ -2224,7 +2293,10 @@ struct Context2::Impl
     ~Impl()
     {
         if(handle)
+        {
             clReleaseContext(handle);
+            handle = NULL;
+        }
         devices.clear();
     }
 
@@ -2380,11 +2452,10 @@ void initializeContextFromHandle(Context2& ctx, void* platform, void* _context, 
     cl_device_id device = (cl_device_id)_device;
 
     // cleanup old context
-    Context2::Impl* impl = ctx._getImpl();
+    Context2::Impl * impl = ctx.p;
     if (impl->handle)
     {
-        cl_int status = clReleaseContext(impl->handle);
-        (void)status;
+        CV_OclDbgAssert(clReleaseContext(impl->handle) == CL_SUCCESS);
     }
     impl->devices.clear();
 
@@ -2393,10 +2464,11 @@ void initializeContextFromHandle(Context2& ctx, void* platform, void* _context, 
     impl->devices[0].set(device);
 
     Platform& p = Platform::getDefault();
-    Platform::Impl* pImpl = p._getImpl();
+    Platform::Impl* pImpl = p.p;
     pImpl->handle = (cl_platform_id)platform;
 }
 
+/////////////////////////////////////////// Queue /////////////////////////////////////////////
 
 struct Queue::Impl
 {
@@ -2415,6 +2487,7 @@ struct Queue::Impl
             dh = (cl_device_id)pc->device(0).ptr();
         cl_int retval = 0;
         handle = clCreateCommandQueue(ch, dh, 0, &retval);
+        CV_OclDbgAssert(retval == CL_SUCCESS);
     }
 
     ~Impl()
@@ -2427,6 +2500,7 @@ struct Queue::Impl
             {
                 clFinish(handle);
                 clReleaseCommandQueue(handle);
+                handle = NULL;
             }
         }
     }
@@ -2483,7 +2557,9 @@ bool Queue::create(const Context2& c, const Device& d)
 void Queue::finish()
 {
     if(p && p->handle)
-        clFinish(p->handle);
+    {
+        CV_OclDbgAssert(clFinish(p->handle) == CL_SUCCESS);
+    }
 }
 
 void* Queue::ptr() const
@@ -2507,6 +2583,8 @@ static cl_command_queue getQueue(const Queue& q)
     return qq;
 }
 
+/////////////////////////////////////////// KernelArg /////////////////////////////////////////////
+
 KernelArg::KernelArg()
     : flags(0), m(0), obj(0), sz(0), wscale(1)
 {
@@ -2523,6 +2601,7 @@ KernelArg KernelArg::Constant(const Mat& m)
     return KernelArg(CONSTANT, 0, 1, m.data, m.total()*m.elemSize());
 }
 
+/////////////////////////////////////////// Kernel /////////////////////////////////////////////
 
 struct Kernel::Impl
 {
@@ -2533,6 +2612,7 @@ struct Kernel::Impl
         cl_int retval = 0;
         handle = ph != 0 ?
             clCreateKernel(ph, kname, &retval) : 0;
+        CV_OclDbgAssert(retval == CL_SUCCESS);
         for( int i = 0; i < MAX_ARRS; i++ )
             u[i] = 0;
         haveTempDstUMats = false;
@@ -2678,12 +2758,20 @@ bool Kernel::empty() const
 
 int Kernel::set(int i, const void* value, size_t sz)
 {
+    if (!p || !p->handle)
+        return -1;
     CV_Assert(i >= 0);
     if( i == 0 )
         p->cleanupUMats();
-    if( !p || !p->handle || clSetKernelArg(p->handle, (cl_uint)i, sz, value) < 0 )
+    if( clSetKernelArg(p->handle, (cl_uint)i, sz, value) < 0 )
         return -1;
     return i+1;
+}
+
+int Kernel::set(int i, const Image2D& image2D)
+{
+    cl_mem h = (cl_mem)image2D.ptr();
+    return set(i, &h, sizeof(h));
 }
 
 int Kernel::set(int i, const UMat& m)
@@ -2693,9 +2781,9 @@ int Kernel::set(int i, const UMat& m)
 
 int Kernel::set(int i, const KernelArg& arg)
 {
-    CV_Assert( i >= 0 );
     if( !p || !p->handle )
         return -1;
+    CV_Assert( i >= 0 );
     if( i == 0 )
         p->cleanupUMats();
     if( arg.m )
@@ -2705,45 +2793,52 @@ int Kernel::set(int i, const KernelArg& arg)
         bool ptronly = (arg.flags & KernelArg::PTR_ONLY) != 0;
         cl_mem h = (cl_mem)arg.m->handle(accessFlags);
 
+        if (!h)
+        {
+            p->release();
+            p = 0;
+            return -1;
+        }
+
         if (ptronly)
-            clSetKernelArg(p->handle, (cl_uint)i++, sizeof(h), &h);
+            CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)i++, sizeof(h), &h) == CL_SUCCESS);
         else if( arg.m->dims <= 2 )
         {
             UMat2D u2d(*arg.m);
-            clSetKernelArg(p->handle, (cl_uint)i, sizeof(h), &h);
-            clSetKernelArg(p->handle, (cl_uint)(i+1), sizeof(u2d.step), &u2d.step);
-            clSetKernelArg(p->handle, (cl_uint)(i+2), sizeof(u2d.offset), &u2d.offset);
+            CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)i, sizeof(h), &h) == CL_SUCCESS);
+            CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)(i+1), sizeof(u2d.step), &u2d.step) == CL_SUCCESS);
+            CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)(i+2), sizeof(u2d.offset), &u2d.offset) == CL_SUCCESS);
             i += 3;
 
             if( !(arg.flags & KernelArg::NO_SIZE) )
             {
                 int cols = u2d.cols*arg.wscale;
-                clSetKernelArg(p->handle, (cl_uint)i, sizeof(u2d.rows), &u2d.rows);
-                clSetKernelArg(p->handle, (cl_uint)(i+1), sizeof(cols), &cols);
+                CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)i, sizeof(u2d.rows), &u2d.rows) == CL_SUCCESS);
+                CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)(i+1), sizeof(cols), &cols) == CL_SUCCESS);
                 i += 2;
             }
         }
         else
         {
             UMat3D u3d(*arg.m);
-            clSetKernelArg(p->handle, (cl_uint)i, sizeof(h), &h);
-            clSetKernelArg(p->handle, (cl_uint)(i+1), sizeof(u3d.slicestep), &u3d.slicestep);
-            clSetKernelArg(p->handle, (cl_uint)(i+2), sizeof(u3d.step), &u3d.step);
-            clSetKernelArg(p->handle, (cl_uint)(i+3), sizeof(u3d.offset), &u3d.offset);
+            CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)i, sizeof(h), &h) == CL_SUCCESS);
+            CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)(i+1), sizeof(u3d.slicestep), &u3d.slicestep) == CL_SUCCESS);
+            CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)(i+2), sizeof(u3d.step), &u3d.step) == CL_SUCCESS);
+            CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)(i+3), sizeof(u3d.offset), &u3d.offset) == CL_SUCCESS);
             i += 4;
             if( !(arg.flags & KernelArg::NO_SIZE) )
             {
                 int cols = u3d.cols*arg.wscale;
-                clSetKernelArg(p->handle, (cl_uint)i, sizeof(u3d.slices), &u3d.rows);
-                clSetKernelArg(p->handle, (cl_uint)(i+1), sizeof(u3d.rows), &u3d.rows);
-                clSetKernelArg(p->handle, (cl_uint)(i+2), sizeof(u3d.cols), &cols);
+                CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)i, sizeof(u3d.slices), &u3d.rows) == CL_SUCCESS);
+                CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)(i+1), sizeof(u3d.rows), &u3d.rows) == CL_SUCCESS);
+                CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)(i+2), sizeof(u3d.cols), &cols) == CL_SUCCESS);
                 i += 3;
             }
         }
         p->addUMat(*arg.m, (accessFlags & ACCESS_WRITE) != 0);
         return i;
     }
-    clSetKernelArg(p->handle, (cl_uint)i, arg.sz, arg.obj);
+    CV_OclDbgAssert(clSetKernelArg(p->handle, (cl_uint)i, arg.sz, arg.obj) == CL_SUCCESS);
     return i+1;
 }
 
@@ -2773,17 +2868,17 @@ bool Kernel::run(int dims, size_t _globalsize[], size_t _localsize[],
     cl_int retval = clEnqueueNDRangeKernel(qq, p->handle, (cl_uint)dims,
                                            offset, globalsize, _localsize, 0, 0,
                                            sync ? 0 : &p->e);
-    if( sync || retval < 0 )
+    if( sync || retval != CL_SUCCESS )
     {
-        clFinish(qq);
+        CV_OclDbgAssert(clFinish(qq) == CL_SUCCESS);
         p->cleanupUMats();
     }
     else
     {
         p->addref();
-        clSetEventCallback(p->e, CL_COMPLETE, oclCleanupCallback, p);
+        CV_OclDbgAssert(clSetEventCallback(p->e, CL_COMPLETE, oclCleanupCallback, p) == CL_SUCCESS);
     }
-    return retval >= 0;
+    return retval == CL_SUCCESS;
 }
 
 bool Kernel::runTask(bool sync, const Queue& q)
@@ -2793,62 +2888,62 @@ bool Kernel::runTask(bool sync, const Queue& q)
 
     cl_command_queue qq = getQueue(q);
     cl_int retval = clEnqueueTask(qq, p->handle, 0, 0, sync ? 0 : &p->e);
-    if( sync || retval < 0 )
+    if( sync || retval != CL_SUCCESS )
     {
-        clFinish(qq);
+        CV_OclDbgAssert(clFinish(qq) == CL_SUCCESS);
         p->cleanupUMats();
     }
     else
     {
         p->addref();
-        clSetEventCallback(p->e, CL_COMPLETE, oclCleanupCallback, p);
+        CV_OclDbgAssert(clSetEventCallback(p->e, CL_COMPLETE, oclCleanupCallback, p) == CL_SUCCESS);
     }
-    return retval >= 0;
+    return retval == CL_SUCCESS;
 }
 
 
 size_t Kernel::workGroupSize() const
 {
-    if(!p)
+    if(!p || !p->handle)
         return 0;
     size_t val = 0, retsz = 0;
     cl_device_id dev = (cl_device_id)Device::getDefault().ptr();
     return clGetKernelWorkGroupInfo(p->handle, dev, CL_KERNEL_WORK_GROUP_SIZE,
-                                    sizeof(val), &val, &retsz) >= 0 ? val : 0;
+                                    sizeof(val), &val, &retsz) == CL_SUCCESS ? val : 0;
 }
 
 size_t Kernel::preferedWorkGroupSizeMultiple() const
 {
-    if(!p)
+    if(!p || !p->handle)
         return 0;
     size_t val = 0, retsz = 0;
     cl_device_id dev = (cl_device_id)Device::getDefault().ptr();
     return clGetKernelWorkGroupInfo(p->handle, dev, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
-                                    sizeof(val), &val, &retsz) >= 0 ? val : 0;
+                                    sizeof(val), &val, &retsz) == CL_SUCCESS ? val : 0;
 }
 
 bool Kernel::compileWorkGroupSize(size_t wsz[]) const
 {
-    if(!p || !wsz)
+    if(!p || !p->handle || !wsz)
         return 0;
     size_t retsz = 0;
     cl_device_id dev = (cl_device_id)Device::getDefault().ptr();
     return clGetKernelWorkGroupInfo(p->handle, dev, CL_KERNEL_COMPILE_WORK_GROUP_SIZE,
-                                    sizeof(wsz[0]*3), wsz, &retsz) >= 0;
+                                    sizeof(wsz[0]*3), wsz, &retsz) == CL_SUCCESS;
 }
 
 size_t Kernel::localMemSize() const
 {
-    if(!p)
+    if(!p || !p->handle)
         return 0;
     size_t retsz = 0;
     cl_ulong val = 0;
     cl_device_id dev = (cl_device_id)Device::getDefault().ptr();
     return clGetKernelWorkGroupInfo(p->handle, dev, CL_KERNEL_LOCAL_MEM_SIZE,
-                                    sizeof(val), &val, &retsz) >= 0 ? (size_t)val : 0;
+                                    sizeof(val), &val, &retsz) == CL_SUCCESS ? (size_t)val : 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////// Program /////////////////////////////////////////////
 
 struct Program::Impl
 {
@@ -2865,7 +2960,7 @@ struct Program::Impl
         cl_int retval = 0;
 
         handle = clCreateProgramWithSource((cl_context)ctx.ptr(), 1, &srcptr, &srclen, &retval);
-        if( handle && retval >= 0 )
+        if( handle && retval == CL_SUCCESS )
         {
             int i, n = (int)ctx.ndevices();
             AutoBuffer<void*> deviceListBuf(n+1);
@@ -2876,21 +2971,22 @@ struct Program::Impl
             retval = clBuildProgram(handle, n,
                                     (const cl_device_id*)deviceList,
                                     buildflags.c_str(), 0, 0);
-            if( retval < 0 )
+            if( retval != CL_SUCCESS )
             {
                 size_t retsz = 0;
                 retval = clGetProgramBuildInfo(handle, (cl_device_id)deviceList[0],
                                                CL_PROGRAM_BUILD_LOG, 0, 0, &retsz);
-                if( retval >= 0 && retsz > 1 )
+                if( retval == CL_SUCCESS && retsz > 1 )
                 {
                     AutoBuffer<char> bufbuf(retsz + 16);
                     char* buf = bufbuf;
                     retval = clGetProgramBuildInfo(handle, (cl_device_id)deviceList[0],
                                                    CL_PROGRAM_BUILD_LOG, retsz+1, buf, &retsz);
-                    if( retval >= 0 )
+                    if( retval == CL_SUCCESS )
                     {
                         errmsg = String(buf);
                         printf("OpenCL program can not be built: %s", errmsg.c_str());
+                        fflush(stdout);
                     }
                 }
 
@@ -2933,6 +3029,7 @@ struct Program::Impl
         cl_int binstatus = 0, retval = 0;
         handle = clCreateProgramWithBinary((cl_context)ctx.ptr(), 1, (cl_device_id*)&devid,
                                            &codelen, &bin, &binstatus, &retval);
+        CV_OclDbgAssert(retval == CL_SUCCESS);
     }
 
     String store()
@@ -2942,13 +3039,13 @@ struct Program::Impl
         size_t progsz = 0, retsz = 0;
         String prefix = Program::getPrefix(buildflags);
         size_t prefixlen = prefix.length();
-        if(clGetProgramInfo(handle, CL_PROGRAM_BINARY_SIZES, sizeof(progsz), &progsz, &retsz) < 0)
+        if(clGetProgramInfo(handle, CL_PROGRAM_BINARY_SIZES, sizeof(progsz), &progsz, &retsz) != CL_SUCCESS)
             return String();
         AutoBuffer<uchar> bufbuf(prefixlen + progsz + 16);
         uchar* buf = bufbuf;
         memcpy(buf, prefix.c_str(), prefixlen);
         buf += prefixlen;
-        if(clGetProgramInfo(handle, CL_PROGRAM_BINARIES, sizeof(buf), &buf, &retsz) < 0)
+        if(clGetProgramInfo(handle, CL_PROGRAM_BINARIES, sizeof(buf), &buf, &retsz) != CL_SUCCESS)
             return String();
         buf[progsz] = (uchar)'\0';
         return String((const char*)(uchar*)bufbuf, prefixlen + progsz);
@@ -2957,7 +3054,10 @@ struct Program::Impl
     ~Impl()
     {
         if( handle )
+        {
             clReleaseProgram(handle);
+            handle = NULL;
+        }
     }
 
     IMPLEMENT_REFCOUNTABLE();
@@ -3057,7 +3157,7 @@ String Program::getPrefix(const String& buildflags)
                   dev.name().c_str(), dev.driverVersion().c_str(), buildflags.c_str());
 }
 
-////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////// ProgramSource2 ///////////////////////////////////////////////
 
 struct ProgramSource2::Impl
 {
@@ -3132,7 +3232,7 @@ ProgramSource2::hash_t ProgramSource2::hash() const
     return p ? p->h : 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////// OpenCLAllocator //////////////////////////////////////////////////
 
 class OpenCLAllocator : public MatAllocator
 {
@@ -3177,7 +3277,7 @@ public:
         cl_int retval = 0;
         void* handle = clCreateBuffer((cl_context)ctx.ptr(),
                                       createFlags, total, 0, &retval);
-        if( !handle || retval < 0 )
+        if( !handle || retval != CL_SUCCESS )
             return defaultAllocate(dims, sizes, type, data, step, flags);
         UMatData* u = new UMatData(this);
         u->data = 0;
@@ -3207,13 +3307,13 @@ public:
             int tempUMatFlags = UMatData::TEMP_UMAT;
             u->handle = clCreateBuffer(ctx_handle, CL_MEM_USE_HOST_PTR|createFlags,
                                        u->size, u->origdata, &retval);
-            if((!u->handle || retval < 0) && !(accessFlags & ACCESS_FAST))
+            if((!u->handle || retval != CL_SUCCESS) && !(accessFlags & ACCESS_FAST))
             {
                 u->handle = clCreateBuffer(ctx_handle, CL_MEM_COPY_HOST_PTR|createFlags,
                                            u->size, u->origdata, &retval);
                 tempUMatFlags = UMatData::TEMP_COPIED_UMAT;
             }
-            if(!u->handle || retval < 0)
+            if(!u->handle || retval != CL_SUCCESS)
                 return false;
             u->prevAllocator = u->currAllocator;
             u->currAllocator = this;
@@ -3267,14 +3367,14 @@ public:
         CV_Assert(u->handle != 0 && u->urefcount == 0);
         if(u->tempUMat())
         {
-            UMatDataAutoLock lock(u);
+//            UMatDataAutoLock lock(u);
             if( u->hostCopyObsolete() && u->refcount > 0 )
             {
                 cl_command_queue q = (cl_command_queue)Queue::getDefault().ptr();
                 if( u->tempCopiedUMat() )
                 {
-                    clEnqueueReadBuffer(q, (cl_mem)u->handle, CL_TRUE, 0,
-                                        u->size, u->origdata, 0, 0, 0);
+                    CV_OclDbgAssert(clEnqueueReadBuffer(q, (cl_mem)u->handle, CL_TRUE, 0,
+                                        u->size, u->origdata, 0, 0, 0) == CL_SUCCESS);
                 }
                 else
                 {
@@ -3282,8 +3382,9 @@ public:
                     void* data = clEnqueueMapBuffer(q, (cl_mem)u->handle, CL_TRUE,
                                                     (CL_MAP_READ | CL_MAP_WRITE),
                                                     0, u->size, 0, 0, 0, &retval);
-                    clEnqueueUnmapMemObject(q, (cl_mem)u->handle, data, 0, 0, 0);
-                    clFinish(q);
+                    CV_OclDbgAssert(retval == CL_SUCCESS);
+                    CV_OclDbgAssert(clEnqueueUnmapMemObject(q, (cl_mem)u->handle, data, 0, 0, 0) == CL_SUCCESS);
+                    CV_OclDbgAssert(clFinish(q) == CL_SUCCESS);
                 }
             }
             u->markHostCopyObsolete(false);
@@ -3335,7 +3436,7 @@ public:
                 u->data = (uchar*)clEnqueueMapBuffer(q, (cl_mem)u->handle, CL_TRUE,
                                                      (CL_MAP_READ | CL_MAP_WRITE),
                                                      0, u->size, 0, 0, 0, &retval);
-                if(u->data && retval >= 0)
+                if(u->data && retval == CL_SUCCESS)
                 {
                     u->markHostCopyObsolete(false);
                     return;
@@ -3355,7 +3456,7 @@ public:
         if( (accessFlags & ACCESS_READ) != 0 && u->hostCopyObsolete() )
         {
             CV_Assert( clEnqueueReadBuffer(q, (cl_mem)u->handle, CL_TRUE, 0,
-                                           u->size, u->data, 0, 0, 0) >= 0 );
+                                           u->size, u->data, 0, 0, 0) == CL_SUCCESS );
             u->markHostCopyObsolete(false);
         }
     }
@@ -3374,14 +3475,14 @@ public:
         if( !u->copyOnMap() && u->data )
         {
             CV_Assert( (retval = clEnqueueUnmapMemObject(q,
-                                (cl_mem)u->handle, u->data, 0, 0, 0)) >= 0 );
-            clFinish(q);
+                                (cl_mem)u->handle, u->data, 0, 0, 0)) == CL_SUCCESS );
+            CV_OclDbgAssert(clFinish(q) == CL_SUCCESS);
             u->data = 0;
         }
         else if( u->copyOnMap() && u->deviceCopyObsolete() )
         {
             CV_Assert( (retval = clEnqueueWriteBuffer(q, (cl_mem)u->handle, CL_TRUE, 0,
-                                u->size, u->data, 0, 0, 0)) >= 0 );
+                                u->size, u->data, 0, 0, 0)) == CL_SUCCESS );
         }
         u->markDeviceCopyObsolete(false);
         u->markHostCopyObsolete(false);
@@ -3489,13 +3590,13 @@ public:
         if( iscontinuous )
         {
             CV_Assert( clEnqueueReadBuffer(q, (cl_mem)u->handle, CL_TRUE,
-                                           srcrawofs, total, dstptr, 0, 0, 0) >= 0 );
+                                           srcrawofs, total, dstptr, 0, 0, 0) == CL_SUCCESS );
         }
         else
         {
             CV_Assert( clEnqueueReadBufferRect(q, (cl_mem)u->handle, CL_TRUE,
                             new_srcofs, new_dstofs, new_sz, new_srcstep[0], new_srcstep[1],
-                            new_dststep[0], new_dststep[1], dstptr, 0, 0, 0) >= 0 );
+                            new_dststep[0], new_dststep[1], dstptr, 0, 0, 0) == CL_SUCCESS );
         }
     }
 
@@ -3539,19 +3640,17 @@ public:
         if( iscontinuous )
         {
             CV_Assert( clEnqueueWriteBuffer(q, (cl_mem)u->handle,
-                CL_TRUE, dstrawofs, total, srcptr, 0, 0, 0) >= 0 );
+                CL_TRUE, dstrawofs, total, srcptr, 0, 0, 0) == CL_SUCCESS );
         }
         else
         {
             CV_Assert( clEnqueueWriteBufferRect(q, (cl_mem)u->handle, CL_TRUE,
                 new_dstofs, new_srcofs, new_sz, new_dststep[0], new_dststep[1],
-                new_srcstep[0], new_srcstep[1], srcptr, 0, 0, 0) >= 0 );
+                new_srcstep[0], new_srcstep[1], srcptr, 0, 0, 0) == CL_SUCCESS );
         }
 
         u->markHostCopyObsolete(true);
         u->markDeviceCopyObsolete(false);
-
-        clFinish(q);
     }
 
     void copy(UMatData* src, UMatData* dst, int dims, const size_t sz[],
@@ -3593,7 +3692,7 @@ public:
         if( iscontinuous )
         {
             CV_Assert( clEnqueueCopyBuffer(q, (cl_mem)src->handle, (cl_mem)dst->handle,
-                                           srcrawofs, dstrawofs, total, 0, 0, 0) >= 0 );
+                                           srcrawofs, dstrawofs, total, 0, 0, 0) == CL_SUCCESS );
         }
         else
         {
@@ -3602,14 +3701,16 @@ public:
                                                new_srcofs, new_dstofs, new_sz,
                                                new_srcstep[0], new_srcstep[1],
                                                new_dststep[0], new_dststep[1],
-                                               0, 0, 0)) >= 0 );
+                                               0, 0, 0)) == CL_SUCCESS );
         }
 
         dst->markHostCopyObsolete(true);
         dst->markDeviceCopyObsolete(false);
 
         if( _sync )
-            clFinish(q);
+        {
+            CV_OclDbgAssert(clFinish(q) == CL_SUCCESS);
+        }
     }
 
     MatAllocator* matStdAllocator;
@@ -3629,6 +3730,135 @@ MatAllocator* getOpenCLAllocator(MatAllocator* matAllocator)
 }
 
 const char* typeToStr(int t)
+///////////////////////////////////////////// Utility functions /////////////////////////////////////////////////
+
+static void getDevices(std::vector<cl_device_id>& devices, cl_platform_id platform)
+{
+    cl_uint numDevices = 0;
+    CV_OclDbgAssert(clGetDeviceIDs(platform, (cl_device_type)Device::TYPE_ALL,
+                                0, NULL, &numDevices) == CL_SUCCESS);
+
+    if (numDevices == 0)
+    {
+        devices.clear();
+        return;
+    }
+
+    devices.resize((size_t)numDevices);
+    CV_OclDbgAssert(clGetDeviceIDs(platform, (cl_device_type)Device::TYPE_ALL,
+                                numDevices, &devices[0], &numDevices) == CL_SUCCESS);
+}
+
+struct PlatformInfo2::Impl
+{
+    Impl(void* id)
+    {
+        refcount = 1;
+        handle = *(cl_platform_id*)id;
+        getDevices(devices, handle);
+    }
+
+    String getStrProp(cl_device_info prop) const
+    {
+        char buf[1024];
+        size_t sz=0;
+        return clGetPlatformInfo(handle, prop, sizeof(buf)-16, buf, &sz) == CL_SUCCESS &&
+            sz < sizeof(buf) ? String(buf) : String();
+    }
+
+    IMPLEMENT_REFCOUNTABLE();
+    std::vector<cl_device_id> devices;
+    cl_platform_id handle;
+};
+
+PlatformInfo2::PlatformInfo2()
+{
+    p = 0;
+}
+
+PlatformInfo2::PlatformInfo2(void* platform_id)
+{
+    p = new Impl(platform_id);
+}
+
+PlatformInfo2::~PlatformInfo2()
+{
+    if(p)
+        p->release();
+}
+
+PlatformInfo2::PlatformInfo2(const PlatformInfo2& i)
+{
+    if (i.p)
+        i.p->addref();
+    p = i.p;
+}
+
+PlatformInfo2& PlatformInfo2::operator =(const PlatformInfo2& i)
+{
+    if (i.p != p)
+    {
+        if (i.p)
+            i.p->addref();
+        if (p)
+            p->release();
+        p = i.p;
+    }
+    return *this;
+}
+
+int PlatformInfo2::deviceNumber() const
+{
+    return p ? (int)p->devices.size() : 0;
+}
+
+void PlatformInfo2::getDevice(Device& device, int d) const
+{
+    CV_Assert(p && d < (int)p->devices.size() );
+    if(p)
+        device.set(p->devices[d]);
+}
+
+String PlatformInfo2::name() const
+{
+    return p ? p->getStrProp(CL_PLATFORM_NAME) : String();
+}
+
+String PlatformInfo2::vendor() const
+{
+    return p ? p->getStrProp(CL_PLATFORM_VENDOR) : String();
+}
+
+String PlatformInfo2::version() const
+{
+    return p ? p->getStrProp(CL_PLATFORM_VERSION) : String();
+}
+
+static void getPlatforms(std::vector<cl_platform_id>& platforms)
+{
+    cl_uint numPlatforms = 0;
+    CV_OclDbgAssert(clGetPlatformIDs(0, NULL, &numPlatforms) == CL_SUCCESS);
+
+    if (numPlatforms == 0)
+    {
+        platforms.clear();
+        return;
+    }
+
+    platforms.resize((size_t)numPlatforms);
+    CV_OclDbgAssert(clGetPlatformIDs(numPlatforms, &platforms[0], &numPlatforms) == CL_SUCCESS);
+}
+
+void getPlatfomsInfo(std::vector<PlatformInfo2>& platformsInfo)
+{
+    std::vector<cl_platform_id> platforms;
+    getPlatforms(platforms);
+
+    for (size_t i = 0; i < platforms.size(); i++)
+        platformsInfo.push_back( PlatformInfo2((void*)&platforms[i]) );
+}
+
+const char* typeToStr(int type)
 {
     static const char* tab[]=
     {
@@ -3641,11 +3871,11 @@ const char* typeToStr(int t)
         "double", "double2", "double3", "double4",
         "?", "?", "?", "?"
     };
-    int cn = CV_MAT_CN(t);
-    return cn > 4 ? "?" : tab[CV_MAT_DEPTH(t)*4 + cn-1];
+    int cn = CV_MAT_CN(type), depth = CV_MAT_DEPTH(type);
+    return cn > 4 ? "?" : tab[depth*4 + cn-1];
 }
 
-const char* memopTypeToStr(int t)
+const char* memopTypeToStr(int type)
 {
     static const char* tab[]=
     {
@@ -3658,8 +3888,8 @@ const char* memopTypeToStr(int t)
         "int2", "int4", "?", "int8",
         "?", "?", "?", "?"
     };
-    int cn = CV_MAT_CN(t);
-    return cn > 4 ? "?" : tab[CV_MAT_DEPTH(t)*4 + cn-1];
+    int cn = CV_MAT_CN(type), depth = CV_MAT_DEPTH(type);
+    return cn > 4 ? "?" : tab[depth*4 + cn-1];
 }
 
 const char* convertTypeStr(int sdepth, int ddepth, int cn, char* buf)
@@ -3675,14 +3905,201 @@ const char* convertTypeStr(int sdepth, int ddepth, int cn, char* buf)
         sprintf(buf, "convert_%s", typestr);
     }
     else if( sdepth >= CV_32F )
-    {
         sprintf(buf, "convert_%s%s_rte", typestr, (ddepth < CV_32S ? "_sat" : ""));
+    else
+        sprintf(buf, "convert_%s_sat", typestr);
+
+    return buf;
+}
+
+template <typename T>
+static std::string kerToStr(const Mat & k)
+{
+    int width = k.cols - 1, depth = k.depth();
+    const T * const data = reinterpret_cast<const T *>(k.data);
+
+    std::ostringstream stream;
+    stream.precision(10);
+
+    if (depth <= CV_8S)
+    {
+        for (int i = 0; i < width; ++i)
+            stream << "DIG(" << (int)data[i] << ")";
+        stream << "DIG(" << (int)data[width] << ")";
+    }
+    else if (depth == CV_32F)
+    {
+        stream.setf(std::ios_base::showpoint);
+        for (int i = 0; i < width; ++i)
+            stream << "DIG(" << data[i] << "f)";
+        stream << "DIG(" << data[width] << "f)";
     }
     else
     {
-        sprintf(buf, "convert_%s_sat", typestr);
+        for (int i = 0; i < width; ++i)
+            stream << "DIG(" << data[i] << ")";
+        stream << "DIG(" << data[width] << ")";
     }
-    return buf;
+
+    return stream.str();
+}
+
+String kernelToStr(InputArray _kernel, int ddepth)
+{
+    Mat kernel = _kernel.getMat().reshape(1, 1);
+
+    int depth = kernel.depth();
+    if (ddepth < 0)
+        ddepth = depth;
+
+    if (ddepth != depth)
+        kernel.convertTo(kernel, ddepth);
+
+    typedef std::string (*func_t)(const Mat &);
+    static const func_t funcs[] = { kerToStr<uchar>, kerToStr<char>, kerToStr<ushort>,kerToStr<short>,
+                                    kerToStr<int>, kerToStr<float>, kerToStr<double>, 0 };
+    const func_t func = funcs[depth];
+    CV_Assert(func != 0);
+
+    return cv::format(" -D COEFF=%s", func(kernel).c_str());
+}
+
+/////////////////////////////////////////// Image2D ////////////////////////////////////////////////////
+
+struct Image2D::Impl
+{
+    Impl(const UMat &src)
+    {
+        handle = 0;
+        refcount = 1;
+        init(src);
+    }
+
+    ~Impl()
+    {
+        if (handle)
+            clReleaseMemObject(handle);
+    }
+
+    void init(const UMat &src)
+    {
+        CV_Assert(ocl::Device::getDefault().imageSupport());
+
+        cl_image_format format;
+        int err, depth = src.depth(), cn = src.channels();
+        CV_Assert(cn <= 4);
+
+        static const int channelTypes[] = { CL_UNSIGNED_INT8, CL_SIGNED_INT8, CL_UNSIGNED_INT16,
+                                       CL_SIGNED_INT16, CL_SIGNED_INT32, CL_FLOAT, -1, -1 };
+        static const int channelOrders[] = { -1, CL_R, CL_RG, -1, CL_RGBA };
+
+        int channelType = channelTypes[depth], channelOrder = channelOrders[cn];
+        if (channelType < 0 || channelOrder < 0)
+            CV_Error(Error::OpenCLApiCallError, "Image format is not supported");
+
+        format.image_channel_data_type = (cl_channel_type)channelType;
+        format.image_channel_order = (cl_channel_order)channelOrder;
+
+        cl_context context = (cl_context)Context2::getDefault().ptr();
+        cl_command_queue queue = (cl_command_queue)Queue::getDefault().ptr();
+
+#ifdef CL_VERSION_1_2
+        // this enables backwards portability to
+        // run on OpenCL 1.1 platform if library binaries are compiled with OpenCL 1.2 support
+        const Device & d = ocl::Device::getDefault();
+        int minor = d.deviceVersionMinor(), major = d.deviceVersionMajor();
+        if (1 < major || (1 == major && 2 <= minor))
+        {
+            cl_image_desc desc;
+            desc.image_type       = CL_MEM_OBJECT_IMAGE2D;
+            desc.image_width      = src.cols;
+            desc.image_height     = src.rows;
+            desc.image_depth      = 0;
+            desc.image_array_size = 1;
+            desc.image_row_pitch  = 0;
+            desc.image_slice_pitch = 0;
+            desc.buffer           = NULL;
+            desc.num_mip_levels   = 0;
+            desc.num_samples      = 0;
+            handle = clCreateImage(context, CL_MEM_READ_WRITE, &format, &desc, NULL, &err);
+        }
+        else
+#endif
+        {
+            handle = clCreateImage2D(context, CL_MEM_READ_WRITE, &format, src.cols, src.rows, 0, NULL, &err);
+        }
+        CV_OclDbgAssert(err == CL_SUCCESS);
+
+        size_t origin[] = { 0, 0, 0 };
+        size_t region[] = { src.cols, src.rows, 1 };
+
+        cl_mem devData;
+        if (!src.isContinuous())
+        {
+            devData = clCreateBuffer(context, CL_MEM_READ_ONLY, src.cols * src.rows * src.elemSize(), NULL, &err);
+            CV_OclDbgAssert(err == CL_SUCCESS);
+
+            const size_t roi[3] = {src.cols * src.elemSize(), src.rows, 1};
+            CV_Assert(clEnqueueCopyBufferRect(queue, (cl_mem)src.handle(ACCESS_READ), devData, origin, origin,
+                roi, src.step, 0, src.cols * src.elemSize(), 0, 0, NULL, NULL) == CL_SUCCESS);
+            CV_OclDbgAssert(clFlush(queue) == CL_SUCCESS);
+        }
+        else
+            devData = (cl_mem)src.handle(ACCESS_READ);
+        CV_Assert(devData != NULL);
+
+        CV_OclDbgAssert(clEnqueueCopyBufferToImage(queue, devData, handle, 0, origin, region, 0, NULL, 0) == CL_SUCCESS);
+        if (!src.isContinuous())
+        {
+            CV_OclDbgAssert(clFlush(queue) == CL_SUCCESS);
+            CV_OclDbgAssert(clReleaseMemObject(devData) == CL_SUCCESS);
+        }
+    }
+
+    IMPLEMENT_REFCOUNTABLE();
+
+    cl_mem handle;
+};
+
+Image2D::Image2D()
+{
+    p = NULL;
+}
+
+Image2D::Image2D(const UMat &src)
+{
+    p = new Impl(src);
+}
+
+Image2D::Image2D(const Image2D & i)
+{
+    p = i.p;
+    if (p)
+        p->addref();
+}
+
+Image2D & Image2D::operator = (const Image2D & i)
+{
+    if (i.p != p)
+    {
+        if (i.p)
+            i.p->addref();
+        if (p)
+            p->release();
+        p = i.p;
+    }
+    return *this;
+}
+
+Image2D::~Image2D()
+{
+    if (p)
+        p->release();
+}
+
+void* Image2D::ptr() const
+{
+    return p ? p->handle : 0;
 }
 
 }}
