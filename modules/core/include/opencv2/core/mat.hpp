@@ -51,6 +51,7 @@
 #include "opencv2/core/matx.hpp"
 #include "opencv2/core/types.hpp"
 
+#include "opencv2/core/bufferpool.hpp"
 
 namespace cv
 {
@@ -84,10 +85,8 @@ public:
         OPENGL_BUFFER     = 7 << KIND_SHIFT,
         CUDA_MEM          = 8 << KIND_SHIFT,
         GPU_MAT           = 9 << KIND_SHIFT,
-        OCL_MAT           =10 << KIND_SHIFT,
-        UMAT              =11 << KIND_SHIFT,
-        STD_VECTOR_UMAT   =12 << KIND_SHIFT,
-        UEXPR             =13 << KIND_SHIFT
+        UMAT              =10 << KIND_SHIFT,
+        STD_VECTOR_UMAT   =11 << KIND_SHIFT
     };
 
     _InputArray();
@@ -108,7 +107,6 @@ public:
     template<typename _Tp> _InputArray(const cudev::GpuMat_<_Tp>& m);
     _InputArray(const UMat& um);
     _InputArray(const std::vector<UMat>& umv);
-    _InputArray(const UMatExpr& uexpr);
 
     virtual Mat getMat(int idx=-1) const;
     virtual UMat getUMat(int idx=-1) const;
@@ -299,6 +297,9 @@ public:
     virtual void copy(UMatData* srcdata, UMatData* dstdata, int dims, const size_t sz[],
                       const size_t srcofs[], const size_t srcstep[],
                       const size_t dstofs[], const size_t dststep[], bool sync) const;
+
+    // default implementation returns DummyBufferPoolController
+    virtual BufferPoolController* getBufferPoolController() const;
 };
 
 
@@ -363,7 +364,7 @@ struct CV_EXPORTS UMatData
     int refcount;
     uchar* data;
     uchar* origdata;
-    size_t size;
+    size_t size, capacity;
 
     int flags;
     void* handle;
@@ -1131,9 +1132,6 @@ typedef Mat_<Vec2d> Mat2d;
 typedef Mat_<Vec3d> Mat3d;
 typedef Mat_<Vec4d> Mat4d;
 
-
-class CV_EXPORTS UMatExpr;
-
 class CV_EXPORTS UMat
 {
 public:
@@ -1175,7 +1173,6 @@ public:
     ~UMat();
     //! assignment operators
     UMat& operator = (const UMat& m);
-    UMat& operator = (const UMatExpr& expr);
 
     Mat getMat(int flags) const;
 
@@ -1219,26 +1216,24 @@ public:
     UMat reshape(int cn, int newndims, const int* newsz) const;
 
     //! matrix transposition by means of matrix expressions
-    UMatExpr t() const;
+    UMat t() const;
     //! matrix inversion by means of matrix expressions
-    UMatExpr inv(int method=DECOMP_LU) const;
+    UMat inv(int method=DECOMP_LU) const;
     //! per-element matrix multiplication by means of matrix expressions
-    UMatExpr mul(InputArray m, double scale=1) const;
+    UMat mul(InputArray m, double scale=1) const;
 
-    //! computes cross-product of 2 3D vectors
-    UMat cross(InputArray m) const;
     //! computes dot-product
     double dot(InputArray m) const;
 
     //! Matlab-style matrix initialization
-    static UMatExpr zeros(int rows, int cols, int type);
-    static UMatExpr zeros(Size size, int type);
-    static UMatExpr zeros(int ndims, const int* sz, int type);
-    static UMatExpr ones(int rows, int cols, int type);
-    static UMatExpr ones(Size size, int type);
-    static UMatExpr ones(int ndims, const int* sz, int type);
-    static UMatExpr eye(int rows, int cols, int type);
-    static UMatExpr eye(Size size, int type);
+    static UMat zeros(int rows, int cols, int type);
+    static UMat zeros(Size size, int type);
+    static UMat zeros(int ndims, const int* sz, int type);
+    static UMat ones(int rows, int cols, int type);
+    static UMat ones(Size size, int type);
+    static UMat ones(int ndims, const int* sz, int type);
+    static UMat eye(int rows, int cols, int type);
+    static UMat eye(Size size, int type);
 
     //! allocates new matrix data unless the matrix already has specified size and type.
     // previous data is unreferenced if needed.

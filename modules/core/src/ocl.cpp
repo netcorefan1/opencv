@@ -40,10 +40,47 @@
 //M*/
 
 #include "precomp.hpp"
+#include <list>
 #include <map>
 #include <string>
 #include <sstream>
 #include <iostream> // std::cerr
+
+#include "opencv2/core/bufferpool.hpp"
+#ifndef LOG_BUFFER_POOL
+# if 0
+#   define LOG_BUFFER_POOL printf
+# else
+#   define LOG_BUFFER_POOL(...)
+# endif
+#endif
+
+// TODO Move to some common place
+static size_t getConfigurationParameterForSize(const char* name, size_t defaultValue)
+{
+    const char* envValue = getenv(name);
+    if (envValue == NULL)
+    {
+        return defaultValue;
+    }
+    cv::String value = envValue;
+    size_t pos = 0;
+    for (; pos < value.size(); pos++)
+    {
+        if (!isdigit(value[pos]))
+            break;
+    }
+    cv::String valueStr = value.substr(0, pos);
+    cv::String suffixStr = value.substr(pos, value.length() - pos);
+    int v = atoi(valueStr.c_str());
+    if (suffixStr.length() == 0)
+        return v;
+    else if (suffixStr == "MB" || suffixStr == "Mb" || suffixStr == "mb")
+        return v * 1024 * 1024;
+    else if (suffixStr == "KB" || suffixStr == "Kb" || suffixStr == "kb")
+        return v * 1024;
+    CV_ErrorNoReturn(cv::Error::StsBadArg, cv::format("Invalid value for %s parameter: %s", name, value.c_str()));
+}
 
 #include "opencv2/core/opencl/runtime/opencl_clamdblas.hpp"
 #include "opencv2/core/opencl/runtime/opencl_clamdfft.hpp"
@@ -1535,7 +1572,7 @@ bool haveAmdFft()
 
 #endif
 
-void finish2()
+void finish()
 {
     Queue::getDefault().finish();
 }
@@ -1988,7 +2025,7 @@ size_t Device::profilingTimerResolution() const
 
 const Device& Device::getDefault()
 {
-    const Context2& ctx = Context2::getDefault();
+    const Context& ctx = Context::getDefault();
     int idx = coreTlsData.get()->device;
     return ctx.device(idx);
 }
@@ -2193,7 +2230,7 @@ not_found:
     return NULL;
 }
 
-struct Context2::Impl
+struct Context::Impl
 {
     Impl()
     {
@@ -2300,7 +2337,7 @@ struct Context2::Impl
         devices.clear();
     }
 
-    Program getProg(const ProgramSource2& src,
+    Program getProg(const ProgramSource& src,
                     const String& buildflags, String& errmsg)
     {
         String prefix = Program::getPrefix(buildflags);
@@ -2320,7 +2357,7 @@ struct Context2::Impl
     cl_context handle;
     std::vector<Device> devices;
 
-    typedef ProgramSource2::hash_t hash_t;
+    typedef ProgramSource::hash_t hash_t;
 
     struct HashKey
     {
@@ -2335,18 +2372,18 @@ struct Context2::Impl
 };
 
 
-Context2::Context2()
+Context::Context()
 {
     p = 0;
 }
 
-Context2::Context2(int dtype)
+Context::Context(int dtype)
 {
     p = 0;
     create(dtype);
 }
 
-bool Context2::create()
+bool Context::create()
 {
     if( !haveOpenCL() )
         return false;
@@ -2361,7 +2398,7 @@ bool Context2::create()
     return p != 0;
 }
 
-bool Context2::create(int dtype0)
+bool Context::create(int dtype0)
 {
     if( !haveOpenCL() )
         return false;
@@ -2376,7 +2413,7 @@ bool Context2::create(int dtype0)
     return p != 0;
 }
 
-Context2::~Context2()
+Context::~Context()
 {
     if (p)
     {
@@ -2385,14 +2422,14 @@ Context2::~Context2()
     }
 }
 
-Context2::Context2(const Context2& c)
+Context::Context(const Context& c)
 {
     p = (Impl*)c.p;
     if(p)
         p->addref();
 }
 
-Context2& Context2::operator = (const Context2& c)
+Context& Context::operator = (const Context& c)
 {
     Impl* newp = (Impl*)c.p;
     if(newp)
@@ -2403,34 +2440,34 @@ Context2& Context2::operator = (const Context2& c)
     return *this;
 }
 
-void* Context2::ptr() const
+void* Context::ptr() const
 {
     return p == NULL ? NULL : p->handle;
 }
 
-size_t Context2::ndevices() const
+size_t Context::ndevices() const
 {
     return p ? p->devices.size() : 0;
 }
 
-const Device& Context2::device(size_t idx) const
+const Device& Context::device(size_t idx) const
 {
     static Device dummy;
     return !p || idx >= p->devices.size() ? dummy : p->devices[idx];
 }
 
-Context2& Context2::getDefault(bool initialize)
+Context& Context::getDefault(bool initialize)
 {
-    static Context2 ctx;
+    static Context ctx;
     if(!ctx.p && haveOpenCL())
     {
         if (!ctx.p)
             ctx.p = new Impl();
         if (initialize)
         {
-            // do not create new Context2 right away.
+            // do not create new Context right away.
             // First, try to retrieve existing context of the same type.
-            // In its turn, Platform::getContext() may call Context2::create()
+            // In its turn, Platform::getContext() may call Context::create()
             // if there is no such context.
             if (ctx.p->handle == NULL)
                 ctx.p->setDefault();
@@ -2440,19 +2477,19 @@ Context2& Context2::getDefault(bool initialize)
     return ctx;
 }
 
-Program Context2::getProg(const ProgramSource2& prog,
+Program Context::getProg(const ProgramSource& prog,
                          const String& buildopts, String& errmsg)
 {
     return p ? p->getProg(prog, buildopts, errmsg) : Program();
 }
 
-void initializeContextFromHandle(Context2& ctx, void* platform, void* _context, void* _device)
+void initializeContextFromHandle(Context& ctx, void* platform, void* _context, void* _device)
 {
     cl_context context = (cl_context)_context;
     cl_device_id device = (cl_device_id)_device;
 
     // cleanup old context
-    Context2::Impl * impl = ctx.p;
+    Context::Impl * impl = ctx.p;
     if (impl->handle)
     {
         CV_OclDbgAssert(clReleaseContext(impl->handle) == CL_SUCCESS);
@@ -2472,14 +2509,14 @@ void initializeContextFromHandle(Context2& ctx, void* platform, void* _context, 
 
 struct Queue::Impl
 {
-    Impl(const Context2& c, const Device& d)
+    Impl(const Context& c, const Device& d)
     {
         refcount = 1;
-        const Context2* pc = &c;
+        const Context* pc = &c;
         cl_context ch = (cl_context)pc->ptr();
         if( !ch )
         {
-            pc = &Context2::getDefault();
+            pc = &Context::getDefault();
             ch = (cl_context)pc->ptr();
         }
         cl_device_id dh = (cl_device_id)d.ptr();
@@ -2516,7 +2553,7 @@ Queue::Queue()
     p = 0;
 }
 
-Queue::Queue(const Context2& c, const Device& d)
+Queue::Queue(const Context& c, const Device& d)
 {
     p = 0;
     create(c, d);
@@ -2546,7 +2583,7 @@ Queue::~Queue()
         p->release();
 }
 
-bool Queue::create(const Context2& c, const Device& d)
+bool Queue::create(const Context& c, const Device& d)
 {
     if(p)
         p->release();
@@ -2571,7 +2608,7 @@ Queue& Queue::getDefault()
 {
     Queue& q = coreTlsData.get()->oclQueue;
     if( !q.p && haveOpenCL() )
-        q.create(Context2::getDefault());
+        q.create(Context::getDefault());
     return q;
 }
 
@@ -2688,7 +2725,7 @@ Kernel::Kernel(const char* kname, const Program& prog)
     create(kname, prog);
 }
 
-Kernel::Kernel(const char* kname, const ProgramSource2& src,
+Kernel::Kernel(const char* kname, const ProgramSource& src,
                const String& buildopts, String* errmsg)
 {
     p = 0;
@@ -2732,7 +2769,7 @@ bool Kernel::create(const char* kname, const Program& prog)
     return p != 0;
 }
 
-bool Kernel::create(const char* kname, const ProgramSource2& src,
+bool Kernel::create(const char* kname, const ProgramSource& src,
                     const String& buildopts, String* errmsg)
 {
     if(p)
@@ -2742,7 +2779,7 @@ bool Kernel::create(const char* kname, const ProgramSource2& src,
     }
     String tempmsg;
     if( !errmsg ) errmsg = &tempmsg;
-    const Program& prog = Context2::getDefault().getProg(src, buildopts, *errmsg);
+    const Program& prog = Context::getDefault().getProg(src, buildopts, *errmsg);
     return create(kname, prog);
 }
 
@@ -2763,7 +2800,10 @@ int Kernel::set(int i, const void* value, size_t sz)
     CV_Assert(i >= 0);
     if( i == 0 )
         p->cleanupUMats();
-    if( clSetKernelArg(p->handle, (cl_uint)i, sz, value) < 0 )
+
+    cl_int retval = clSetKernelArg(p->handle, (cl_uint)i, sz, value);
+    CV_OclDbgAssert(retval == CL_SUCCESS);
+    if (retval != CL_SUCCESS)
         return -1;
     return i+1;
 }
@@ -2947,11 +2987,11 @@ size_t Kernel::localMemSize() const
 
 struct Program::Impl
 {
-    Impl(const ProgramSource2& _src,
+    Impl(const ProgramSource& _src,
          const String& _buildflags, String& errmsg)
     {
         refcount = 1;
-        const Context2& ctx = Context2::getDefault();
+        const Context& ctx = Context::getDefault();
         src = _src;
         buildflags = _buildflags;
         const String& srcstr = src.source();
@@ -3007,7 +3047,7 @@ struct Program::Impl
         if(_buf.empty())
             return;
         String prefix0 = Program::getPrefix(buildflags);
-        const Context2& ctx = Context2::getDefault();
+        const Context& ctx = Context::getDefault();
         const Device& dev = Device::getDefault();
         const char* pos0 = _buf.c_str();
         const char* pos1 = strchr(pos0, '\n');
@@ -3062,7 +3102,7 @@ struct Program::Impl
 
     IMPLEMENT_REFCOUNTABLE();
 
-    ProgramSource2 src;
+    ProgramSource src;
     String buildflags;
     cl_program handle;
 };
@@ -3070,7 +3110,7 @@ struct Program::Impl
 
 Program::Program() { p = 0; }
 
-Program::Program(const ProgramSource2& src,
+Program::Program(const ProgramSource& src,
         const String& buildflags, String& errmsg)
 {
     p = 0;
@@ -3101,7 +3141,7 @@ Program::~Program()
         p->release();
 }
 
-bool Program::create(const ProgramSource2& src,
+bool Program::create(const ProgramSource& src,
             const String& buildflags, String& errmsg)
 {
     if(p)
@@ -3115,9 +3155,9 @@ bool Program::create(const ProgramSource2& src,
     return p != 0;
 }
 
-const ProgramSource2& Program::source() const
+const ProgramSource& Program::source() const
 {
-    static ProgramSource2 dummy;
+    static ProgramSource dummy;
     return p ? p->src : dummy;
 }
 
@@ -3151,15 +3191,15 @@ String Program::getPrefix() const
 
 String Program::getPrefix(const String& buildflags)
 {
-    const Context2& ctx = Context2::getDefault();
+    const Context& ctx = Context::getDefault();
     const Device& dev = ctx.device(0);
     return format("name=%s\ndriver=%s\nbuildflags=%s\n",
                   dev.name().c_str(), dev.driverVersion().c_str(), buildflags.c_str());
 }
 
-///////////////////////////////////////// ProgramSource2 ///////////////////////////////////////////////
+///////////////////////////////////////// ProgramSource ///////////////////////////////////////////////
 
-struct ProgramSource2::Impl
+struct ProgramSource::Impl
 {
     Impl(const char* _src)
     {
@@ -3178,39 +3218,39 @@ struct ProgramSource2::Impl
 
     IMPLEMENT_REFCOUNTABLE();
     String src;
-    ProgramSource2::hash_t h;
+    ProgramSource::hash_t h;
 };
 
 
-ProgramSource2::ProgramSource2()
+ProgramSource::ProgramSource()
 {
     p = 0;
 }
 
-ProgramSource2::ProgramSource2(const char* prog)
+ProgramSource::ProgramSource(const char* prog)
 {
     p = new Impl(prog);
 }
 
-ProgramSource2::ProgramSource2(const String& prog)
+ProgramSource::ProgramSource(const String& prog)
 {
     p = new Impl(prog);
 }
 
-ProgramSource2::~ProgramSource2()
+ProgramSource::~ProgramSource()
 {
     if(p)
         p->release();
 }
 
-ProgramSource2::ProgramSource2(const ProgramSource2& prog)
+ProgramSource::ProgramSource(const ProgramSource& prog)
 {
     p = prog.p;
     if(p)
         p->addref();
 }
 
-ProgramSource2& ProgramSource2::operator = (const ProgramSource2& prog)
+ProgramSource& ProgramSource::operator = (const ProgramSource& prog)
 {
     Impl* newp = (Impl*)prog.p;
     if(newp)
@@ -3221,21 +3261,221 @@ ProgramSource2& ProgramSource2::operator = (const ProgramSource2& prog)
     return *this;
 }
 
-const String& ProgramSource2::source() const
+const String& ProgramSource::source() const
 {
     static String dummy;
     return p ? p->src : dummy;
 }
 
-ProgramSource2::hash_t ProgramSource2::hash() const
+ProgramSource::hash_t ProgramSource::hash() const
 {
     return p ? p->h : 0;
 }
 
 //////////////////////////////////////////// OpenCLAllocator //////////////////////////////////////////////////
 
+class OpenCLBufferPool
+{
+protected:
+    ~OpenCLBufferPool() { }
+public:
+    virtual cl_mem allocate(size_t size, CV_OUT size_t& capacity) = 0;
+    virtual void release(cl_mem handle, size_t capacity) = 0;
+};
+
+class OpenCLBufferPoolImpl : public BufferPoolController, public OpenCLBufferPool
+{
+public:
+    struct BufferEntry
+    {
+        cl_mem clBuffer_;
+        size_t capacity_;
+    };
+protected:
+    Mutex mutex_;
+
+    size_t currentReservedSize;
+    size_t maxReservedSize;
+
+    std::list<BufferEntry> reservedEntries_; // LRU order
+
+    // synchronized
+    bool _findAndRemoveEntryFromReservedList(CV_OUT BufferEntry& entry, const size_t size)
+    {
+        if (reservedEntries_.empty())
+            return false;
+        std::list<BufferEntry>::iterator i = reservedEntries_.begin();
+        std::list<BufferEntry>::iterator result_pos = reservedEntries_.end();
+        BufferEntry result = {NULL, 0};
+        size_t minDiff = (size_t)(-1);
+        for (; i != reservedEntries_.end(); ++i)
+        {
+            BufferEntry& e = *i;
+            if (e.capacity_ >= size)
+            {
+                size_t diff = e.capacity_ - size;
+                if (diff < size / 8 && (result_pos == reservedEntries_.end() || diff < minDiff))
+                {
+                    minDiff = diff;
+                    result_pos = i;
+                    result = e;
+                    if (diff == 0)
+                        break;
+                }
+            }
+        }
+        if (result_pos != reservedEntries_.end())
+        {
+            //CV_DbgAssert(result == *result_pos);
+            reservedEntries_.erase(result_pos);
+            entry = result;
+            currentReservedSize -= entry.capacity_;
+            return true;
+        }
+        return false;
+    }
+
+    // synchronized
+    void _checkSizeOfReservedEntries()
+    {
+        while (currentReservedSize > maxReservedSize)
+        {
+            CV_DbgAssert(!reservedEntries_.empty());
+            const BufferEntry& entry = reservedEntries_.back();
+            CV_DbgAssert(currentReservedSize >= entry.capacity_);
+            currentReservedSize -= entry.capacity_;
+            _releaseBufferEntry(entry);
+            reservedEntries_.pop_back();
+        }
+    }
+
+    inline size_t _allocationGranularity(size_t size)
+    {
+        // heuristic values
+        if (size < 1024)
+            return 16;
+        else if (size < 64*1024)
+            return 64;
+        else if (size < 1024*1024)
+            return 4096;
+        else if (size < 16*1024*1024)
+            return 64*1024;
+        else
+            return 1024*1024;
+    }
+
+    void _allocateBufferEntry(BufferEntry& entry, size_t size)
+    {
+        CV_DbgAssert(entry.clBuffer_ == NULL);
+        entry.capacity_ = alignSize(size, (int)_allocationGranularity(size));
+        Context& ctx = Context::getDefault();
+        cl_int retval = CL_SUCCESS;
+        entry.clBuffer_ = clCreateBuffer((cl_context)ctx.ptr(), CL_MEM_READ_WRITE, entry.capacity_, 0, &retval);
+        CV_Assert(retval == CL_SUCCESS);
+        CV_Assert(entry.clBuffer_ != NULL);
+        LOG_BUFFER_POOL("OpenCL allocate %lld (0x%llx) bytes: %p\n",
+                (long long)entry.capacity_, (long long)entry.capacity_, entry.clBuffer_);
+    }
+
+    void _releaseBufferEntry(const BufferEntry& entry)
+    {
+        CV_Assert(entry.capacity_ != 0);
+        CV_Assert(entry.clBuffer_ != NULL);
+        LOG_BUFFER_POOL("OpenCL release buffer: %p, %lld (0x%llx) bytes\n",
+                entry.clBuffer_, (long long)entry.capacity_, (long long)entry.capacity_);
+        clReleaseMemObject(entry.clBuffer_);
+    }
+public:
+    OpenCLBufferPoolImpl()
+        : currentReservedSize(0), maxReservedSize(0)
+    {
+        // Note: Buffer pool is disabled by default,
+        //       because we didn't receive significant performance improvement
+        maxReservedSize = getConfigurationParameterForSize("OPENCV_OPENCL_BUFFERPOOL_LIMIT", 0);
+    }
+    virtual ~OpenCLBufferPoolImpl()
+    {
+        freeAllReservedBuffers();
+        CV_Assert(reservedEntries_.empty());
+    }
+public:
+    virtual cl_mem allocate(size_t size, CV_OUT size_t& capacity)
+    {
+        BufferEntry entry = {NULL, 0};
+        if (maxReservedSize > 0)
+        {
+            AutoLock locker(mutex_);
+            if (_findAndRemoveEntryFromReservedList(entry, size))
+            {
+                CV_DbgAssert(size <= entry.capacity_);
+                LOG_BUFFER_POOL("Reuse reserved buffer: %p\n", entry.clBuffer_);
+                capacity = entry.capacity_;
+                return entry.clBuffer_;
+            }
+        }
+        _allocateBufferEntry(entry, size);
+        capacity = entry.capacity_;
+        return entry.clBuffer_;
+    }
+    virtual void release(cl_mem handle, size_t capacity)
+    {
+        BufferEntry entry = {handle, capacity};
+        if (maxReservedSize == 0 || entry.capacity_ > maxReservedSize / 8)
+        {
+            _releaseBufferEntry(entry);
+        }
+        else
+        {
+            AutoLock locker(mutex_);
+            reservedEntries_.push_front(entry);
+            currentReservedSize += entry.capacity_;
+            _checkSizeOfReservedEntries();
+        }
+    }
+
+    virtual size_t getReservedSize() const { return currentReservedSize; }
+    virtual size_t getMaxReservedSize() const { return maxReservedSize; }
+    virtual void setMaxReservedSize(size_t size)
+    {
+        AutoLock locker(mutex_);
+        size_t oldMaxReservedSize = maxReservedSize;
+        maxReservedSize = size;
+        if (maxReservedSize < oldMaxReservedSize)
+        {
+            std::list<BufferEntry>::iterator i = reservedEntries_.begin();
+            for (; i != reservedEntries_.end();)
+            {
+                const BufferEntry& entry = *i;
+                if (entry.capacity_ > maxReservedSize / 8)
+                {
+                    CV_DbgAssert(currentReservedSize >= entry.capacity_);
+                    currentReservedSize -= entry.capacity_;
+                    _releaseBufferEntry(entry);
+                    i = reservedEntries_.erase(i);
+                    continue;
+                }
+                ++i;
+            }
+            _checkSizeOfReservedEntries();
+        }
+    }
+    virtual void freeAllReservedBuffers()
+    {
+        AutoLock locker(mutex_);
+        std::list<BufferEntry>::const_iterator i = reservedEntries_.begin();
+        for (; i != reservedEntries_.end(); ++i)
+        {
+            const BufferEntry& entry = *i;
+            _releaseBufferEntry(entry);
+        }
+        reservedEntries_.clear();
+    }
+};
+
+
 class OpenCLAllocator : public MatAllocator
 {
+    mutable OpenCLBufferPoolImpl bufferPool;
 public:
     OpenCLAllocator() { matStdAllocator = Mat::getStdAllocator(); }
 
@@ -3245,7 +3485,7 @@ public:
         return u;
     }
 
-    void getBestFlags(const Context2& ctx, int /*flags*/, int& createFlags, int& flags0) const
+    void getBestFlags(const Context& ctx, int /*flags*/, int& createFlags, int& flags0) const
     {
         const Device& dev = ctx.device(0);
         createFlags = CL_MEM_READ_WRITE;
@@ -3270,21 +3510,22 @@ public:
             total *= sizes[i];
         }
 
-        Context2& ctx = Context2::getDefault();
+        Context& ctx = Context::getDefault();
         int createFlags = 0, flags0 = 0;
         getBestFlags(ctx, flags, createFlags, flags0);
 
-        cl_int retval = 0;
-        void* handle = clCreateBuffer((cl_context)ctx.ptr(),
-                                      createFlags, total, 0, &retval);
-        if( !handle || retval != CL_SUCCESS )
+        CV_Assert(createFlags == CL_MEM_READ_WRITE);
+        size_t capacity = 0;
+        void* handle = bufferPool.allocate(total, capacity);
+        if (!handle)
             return defaultAllocate(dims, sizes, type, data, step, flags);
         UMatData* u = new UMatData(this);
         u->data = 0;
         u->size = total;
+        u->capacity = capacity;
         u->handle = handle;
         u->flags = flags0;
-
+        CV_DbgAssert(!u->tempUMat()); // for bufferPool.release() consistency
         return u;
     }
 
@@ -3298,7 +3539,7 @@ public:
         if(u->handle == 0)
         {
             CV_Assert(u->origdata != 0);
-            Context2& ctx = Context2::getDefault();
+            Context& ctx = Context::getDefault();
             int createFlags = 0, flags0 = 0;
             getBestFlags(ctx, accessFlags, createFlags, flags0);
 
@@ -3405,8 +3646,9 @@ public:
                 fastFree(u->data);
                 u->data = 0;
             }
-            clReleaseMemObject((cl_mem)u->handle);
+            bufferPool.release((cl_mem)u->handle, u->capacity);
             u->handle = 0;
+            u->capacity = 0;
             delete u;
         }
     }
@@ -3713,13 +3955,15 @@ public:
         }
     }
 
+    BufferPoolController* getBufferPoolController() const { return &bufferPool; }
+
     MatAllocator* matStdAllocator;
 };
 
 MatAllocator* getOpenCLAllocator()
 {
-    static OpenCLAllocator allocator;
-    return &allocator;
+    static MatAllocator * allocator = new OpenCLAllocator();
+    return allocator;
 }
 
 MatAllocator* getOpenCLAllocator(MatAllocator* matAllocator)
@@ -3729,7 +3973,6 @@ MatAllocator* getOpenCLAllocator(MatAllocator* matAllocator)
    return allocator;
 }
 
-const char* typeToStr(int t)
 ///////////////////////////////////////////// Utility functions /////////////////////////////////////////////////
 
 static void getDevices(std::vector<cl_device_id>& devices, cl_platform_id platform)
@@ -3749,7 +3992,7 @@ static void getDevices(std::vector<cl_device_id>& devices, cl_platform_id platfo
                                 numDevices, &devices[0], &numDevices) == CL_SUCCESS);
 }
 
-struct PlatformInfo2::Impl
+struct PlatformInfo::Impl
 {
     Impl(void* id)
     {
@@ -3771,30 +4014,30 @@ struct PlatformInfo2::Impl
     cl_platform_id handle;
 };
 
-PlatformInfo2::PlatformInfo2()
+PlatformInfo::PlatformInfo()
 {
     p = 0;
 }
 
-PlatformInfo2::PlatformInfo2(void* platform_id)
+PlatformInfo::PlatformInfo(void* platform_id)
 {
     p = new Impl(platform_id);
 }
 
-PlatformInfo2::~PlatformInfo2()
+PlatformInfo::~PlatformInfo()
 {
     if(p)
         p->release();
 }
 
-PlatformInfo2::PlatformInfo2(const PlatformInfo2& i)
+PlatformInfo::PlatformInfo(const PlatformInfo& i)
 {
     if (i.p)
         i.p->addref();
     p = i.p;
 }
 
-PlatformInfo2& PlatformInfo2::operator =(const PlatformInfo2& i)
+PlatformInfo& PlatformInfo::operator =(const PlatformInfo& i)
 {
     if (i.p != p)
     {
@@ -3807,29 +4050,29 @@ PlatformInfo2& PlatformInfo2::operator =(const PlatformInfo2& i)
     return *this;
 }
 
-int PlatformInfo2::deviceNumber() const
+int PlatformInfo::deviceNumber() const
 {
     return p ? (int)p->devices.size() : 0;
 }
 
-void PlatformInfo2::getDevice(Device& device, int d) const
+void PlatformInfo::getDevice(Device& device, int d) const
 {
     CV_Assert(p && d < (int)p->devices.size() );
     if(p)
         device.set(p->devices[d]);
 }
 
-String PlatformInfo2::name() const
+String PlatformInfo::name() const
 {
     return p ? p->getStrProp(CL_PLATFORM_NAME) : String();
 }
 
-String PlatformInfo2::vendor() const
+String PlatformInfo::vendor() const
 {
     return p ? p->getStrProp(CL_PLATFORM_VENDOR) : String();
 }
 
-String PlatformInfo2::version() const
+String PlatformInfo::version() const
 {
     return p ? p->getStrProp(CL_PLATFORM_VERSION) : String();
 }
@@ -3849,13 +4092,13 @@ static void getPlatforms(std::vector<cl_platform_id>& platforms)
     CV_OclDbgAssert(clGetPlatformIDs(numPlatforms, &platforms[0], &numPlatforms) == CL_SUCCESS);
 }
 
-void getPlatfomsInfo(std::vector<PlatformInfo2>& platformsInfo)
+void getPlatfomsInfo(std::vector<PlatformInfo>& platformsInfo)
 {
     std::vector<cl_platform_id> platforms;
     getPlatforms(platforms);
 
     for (size_t i = 0; i < platforms.size(); i++)
-        platformsInfo.push_back( PlatformInfo2((void*)&platforms[i]) );
+        platformsInfo.push_back( PlatformInfo((void*)&platforms[i]) );
 }
 
 const char* typeToStr(int type)
@@ -4000,7 +4243,7 @@ struct Image2D::Impl
         format.image_channel_data_type = (cl_channel_type)channelType;
         format.image_channel_order = (cl_channel_order)channelOrder;
 
-        cl_context context = (cl_context)Context2::getDefault().ptr();
+        cl_context context = (cl_context)Context::getDefault().ptr();
         cl_command_queue queue = (cl_command_queue)Queue::getDefault().ptr();
 
 #ifdef CL_VERSION_1_2

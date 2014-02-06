@@ -43,6 +43,8 @@
 #include "precomp.hpp"
 #include "opencl_kernels.hpp"
 
+#include "bufferpool.impl.hpp"
+
 /****************************************************************************************\
 *                           [scaled] Identity matrix initialization                      *
 \****************************************************************************************/
@@ -157,6 +159,12 @@ void MatAllocator::copy(UMatData* usrc, UMatData* udst, int dims, const size_t s
         memcpy(ptrs[1], ptrs[0], planesz);
 }
 
+BufferPoolController* MatAllocator::getBufferPoolController() const
+{
+    static DummyBufferPoolController dummy;
+    return &dummy;
+}
+
 class StdMatAllocator : public MatAllocator
 {
 public:
@@ -191,7 +199,6 @@ public:
     bool allocate(UMatData* u, int /*accessFlags*/) const
     {
         if(!u) return false;
-        CV_XADD(&u->urefcount, 1);
         return true;
     }
 
@@ -214,8 +221,8 @@ public:
 
 MatAllocator* Mat::getStdAllocator()
 {
-    static StdMatAllocator allocator;
-    return &allocator;
+    static MatAllocator * allocator = new StdMatAllocator();
+    return allocator;
 }
 
 void swap( Mat& a, Mat& b )
@@ -275,7 +282,7 @@ static inline void setSize( Mat& m, int _dims, const int* _sz,
     if( !_sz )
         return;
 
-    size_t esz = CV_ELEM_SIZE(m.flags), total = esz;
+    size_t esz = CV_ELEM_SIZE(m.flags), esz1 = CV_ELEM_SIZE1(m.flags), total = esz;
     int i;
     for( i = _dims-1; i >= 0; i-- )
     {
@@ -284,7 +291,14 @@ static inline void setSize( Mat& m, int _dims, const int* _sz,
         m.size.p[i] = s;
 
         if( _steps )
+        {
+            if (_steps[i] % esz1 != 0)
+            {
+                CV_Error(Error::BadStep, "Step must be a multiple of esz1");
+            }
+
             m.step.p[i] = i < _dims-1 ? _steps[i] : esz;
+        }
         else if( autoSteps )
         {
             m.step.p[i] = total;
@@ -1488,11 +1502,6 @@ Size _InputArray::size(int i) const
         return d_mat->size();
     }
 
-    if( k == OCL_MAT )
-    {
-        CV_Error(CV_StsNotImplemented, "This method is not implemented for oclMat yet");
-    }
-
     CV_Assert( k == CUDA_MEM );
     //if( k == CUDA_MEM )
     {
@@ -1672,11 +1681,6 @@ int _InputArray::dims(int i) const
         return 2;
     }
 
-    if( k == OCL_MAT )
-    {
-        return 2;
-    }
-
     CV_Assert( k == CUDA_MEM );
     //if( k == CUDA_MEM )
     {
@@ -1834,11 +1838,6 @@ bool _InputArray::empty() const
     if( k == OPENGL_BUFFER )
         return ((const ogl::Buffer*)obj)->empty();
 
-    if( k == OCL_MAT )
-    {
-        CV_Error(CV_StsNotImplemented, "This method is not implemented for oclMat yet");
-    }
-
     if( k == GPU_MAT )
         return ((const cuda::GpuMat*)obj)->empty();
 
@@ -1874,7 +1873,7 @@ bool _InputArray::isContinuous(int i) const
         return vv[i].isContinuous();
     }
 
-    CV_Error(CV_StsNotImplemented, "This method is not implemented for oclMat yet");
+    CV_Error(CV_StsNotImplemented, "Unknown/unsupported array type");
     return false;
 }
 
