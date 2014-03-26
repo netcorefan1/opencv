@@ -62,40 +62,35 @@ static const char* oclop2str[] = { "OP_LOG", "OP_EXP", "OP_MAG", "OP_PHASE_DEGRE
 
 static bool ocl_math_op(InputArray _src1, InputArray _src2, OutputArray _dst, int oclop)
 {
-    int type1 = _src1.type(), depth1 = CV_MAT_DEPTH(type1), cn1 = CV_MAT_CN(type1);
-    int type2 = _src2.type(), cn2 = CV_MAT_CN(type2);
+    int type = _src1.type(), depth = CV_MAT_DEPTH(type), cn = CV_MAT_CN(type);
+    int kercn = oclop == OCL_OP_PHASE_DEGREES ||
+            oclop == OCL_OP_PHASE_RADIANS ? 1 : ocl::predictOptimalVectorWidth(_src1, _src2, _dst);
 
-    char opts[1024];
-
-    bool double_support = false;
-    if(ocl::Device::getDefault().doubleFPConfig() > 0)
-        double_support = true;
-    if(!double_support && depth1 == CV_64F)
+    bool double_support = ocl::Device::getDefault().doubleFPConfig() > 0;
+    if (!double_support && depth == CV_64F)
         return false;
 
-        sprintf(opts, "-D %s -D %s -D dstT=%s %s", _src2.empty()?"UNARY_OP":"BINARY_OP",
-            oclop2str[oclop], ocl::typeToStr(CV_MAKETYPE(depth1, 1) ), double_support ? "-D DOUBLE_SUPPORT" : "" );
-
-    ocl::Kernel k("KF", ocl::core::arithm_oclsrc, opts);
-    if( k.empty() )
+    ocl::Kernel k("KF", ocl::core::arithm_oclsrc,
+                  format("-D %s -D %s -D dstT=%s%s", _src2.empty() ? "UNARY_OP" : "BINARY_OP",
+                         oclop2str[oclop], ocl::typeToStr(CV_MAKE_TYPE(depth, kercn)),
+                         double_support ? " -D DOUBLE_SUPPORT" : ""));
+    if (k.empty())
         return false;
 
-    UMat src1 = _src1.getUMat();
-    UMat src2 = _src2.getUMat();
-    _dst.create(src1.size(), type1);
+    UMat src1 = _src1.getUMat(), src2 = _src2.getUMat();
+    _dst.create(src1.size(), type);
     UMat dst = _dst.getUMat();
 
-    ocl::KernelArg src1arg = ocl::KernelArg::ReadOnlyNoSize(src1, cn1);
-    ocl::KernelArg src2arg = ocl::KernelArg::ReadOnlyNoSize(src2, cn2);
-    ocl::KernelArg dstarg = ocl::KernelArg::WriteOnly(dst, cn1);
+    ocl::KernelArg src1arg = ocl::KernelArg::ReadOnlyNoSize(src1),
+            src2arg = ocl::KernelArg::ReadOnlyNoSize(src2),
+            dstarg = ocl::KernelArg::WriteOnly(dst, cn, kercn);
 
-    if(_src2.empty())
+    if (src2.empty())
         k.args(src1arg, dstarg);
     else
         k.args(src1arg, src2arg, dstarg);
 
-    size_t globalsize[] = { src1.cols*cn1, src1.rows};
-
+    size_t globalsize[] = { src1.cols * cn / kercn, src1.rows };
     return k.run(2, globalsize, 0, false);
 }
 
@@ -2046,7 +2041,7 @@ static bool ocl_pow(InputArray _src, double power, OutputArray _dst,
     const char * const op = issqrt ? "OP_SQRT" : is_ipower ? "OP_POWN" : "OP_POW";
 
     ocl::Kernel k("KF", ocl::core::arithm_oclsrc,
-                  format("-D dstT=%s -D %s -D UNARY_OP%s", ocl::typeToStr(CV_MAKE_TYPE(depth, 1)),
+                  format("-D dstT=%s -D %s -D UNARY_OP%s", ocl::typeToStr(depth),
                          op, doubleSupport ? " -D DOUBLE_SUPPORT" : ""));
     if (k.empty())
         return false;
@@ -2086,7 +2081,7 @@ void pow( InputArray _src, double power, OutputArray _dst )
     {
         if( ipower < 0 )
         {
-            divide( 1., _src, _dst );
+            divide( Scalar::all(1), _src, _dst );
             if( ipower == -1 )
                 return;
             ipower = -ipower;
@@ -2120,10 +2115,7 @@ void pow( InputArray _src, double power, OutputArray _dst )
 
     Mat src, dst;
     if (same)
-    {
-        dst = _dst.getMat();
-        src = dst;
-    }
+        src = dst = _dst.getMat();
     else
     {
         src = _src.getMat();

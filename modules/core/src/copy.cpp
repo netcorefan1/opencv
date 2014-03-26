@@ -482,9 +482,9 @@ enum { FLIP_COLS = 1 << 0, FLIP_ROWS = 1 << 1, FLIP_BOTH = FLIP_ROWS | FLIP_COLS
 static bool ocl_flip(InputArray _src, OutputArray _dst, int flipCode )
 {
     CV_Assert(flipCode >= - 1 && flipCode <= 1);
-    int type = _src.type(), cn = CV_MAT_CN(type), flipType;
+    int type = _src.type(), depth = CV_MAT_DEPTH(type), cn = CV_MAT_CN(type), flipType;
 
-    if (cn > 4 || cn == 3)
+    if (cn > 4)
         return false;
 
     const char * kernelName;
@@ -506,7 +506,8 @@ static bool ocl_flip(InputArray _src, OutputArray _dst, int flipCode )
     }
 
     ocl::Kernel k(kernelName, ocl::core::flip_oclsrc,
-        format( "-D type=%s", ocl::memopTypeToStr(type)));
+        format( "-D T=%s -D T1=%s -D cn=%d", ocl::memopTypeToStr(type),
+                ocl::memopTypeToStr(depth), cn));
     if (k.empty())
         return false;
 
@@ -782,18 +783,26 @@ namespace cv {
 static bool ocl_copyMakeBorder( InputArray _src, OutputArray _dst, int top, int bottom,
                                 int left, int right, int borderType, const Scalar& value )
 {
-    int type = _src.type(), cn = CV_MAT_CN(type);
+    int type = _src.type(), cn = CV_MAT_CN(type), depth = CV_MAT_DEPTH(type);
     bool isolated = (borderType & BORDER_ISOLATED) != 0;
     borderType &= ~cv::BORDER_ISOLATED;
 
     if ( !(borderType == BORDER_CONSTANT || borderType == BORDER_REPLICATE || borderType == BORDER_REFLECT ||
            borderType == BORDER_WRAP || borderType == BORDER_REFLECT_101) ||
-         cn == 3 || cn > 4)
+         cn > 4)
         return false;
 
     const char * const borderMap[] = { "BORDER_CONSTANT", "BORDER_REPLICATE", "BORDER_REFLECT", "BORDER_WRAP", "BORDER_REFLECT_101" };
-    ocl::Kernel k("copyMakeBorder", ocl::core::copymakeborder_oclsrc,
-                  format("-D T=%s -D %s", ocl::memopTypeToStr(type), borderMap[borderType]));
+    int scalarcn = cn == 3 ? 4 : cn;
+    int sctype = CV_MAKETYPE(depth, scalarcn);
+    String buildOptions = format(
+            "-D T=%s -D %s "
+            "-D T1=%s -D cn=%d -D ST=%s",
+            ocl::memopTypeToStr(type), borderMap[borderType],
+            ocl::memopTypeToStr(depth), cn, ocl::memopTypeToStr(sctype)
+    );
+
+    ocl::Kernel k("copyMakeBorder", ocl::core::copymakeborder_oclsrc, buildOptions);
     if (k.empty())
         return false;
 
@@ -825,7 +834,7 @@ static bool ocl_copyMakeBorder( InputArray _src, OutputArray _dst, int top, int 
     }
 
     k.args(ocl::KernelArg::ReadOnly(src), ocl::KernelArg::WriteOnly(dst),
-           top, left, ocl::KernelArg::Constant(Mat(1, 1, type, value)));
+           top, left, ocl::KernelArg::Constant(Mat(1, 1, sctype, value)));
 
     size_t globalsize[2] = { dst.cols, dst.rows };
     return k.run(2, globalsize, NULL, false);
