@@ -88,8 +88,10 @@ void UMatData::unlock()
 
 MatAllocator* UMat::getStdAllocator()
 {
+#ifdef HAVE_OPENCL
     if( ocl::haveOpenCL() && ocl::useOpenCL() )
         return ocl::getOpenCLAllocator();
+#endif
     return Mat::getStdAllocator();
 }
 
@@ -672,7 +674,7 @@ void UMat::copyTo(OutputArray _dst, InputArray _mask) const
         copyTo(_dst);
         return;
     }
-
+#ifdef HAVE_OPENCL
     int cn = channels(), mtype = _mask.type(), mdepth = CV_MAT_DEPTH(mtype), mcn = CV_MAT_CN(mtype);
     CV_Assert( mdepth == CV_8U && (mcn == 1 || mcn == cn) );
 
@@ -699,7 +701,7 @@ void UMat::copyTo(OutputArray _dst, InputArray _mask) const
                 return;
         }
     }
-
+#endif
     Mat src = getMat(ACCESS_READ);
     src.copyTo(_dst, _mask);
 }
@@ -720,7 +722,7 @@ void UMat::convertTo(OutputArray _dst, int _type, double alpha, double beta) con
         copyTo(_dst);
         return;
     }
-
+#ifdef HAVE_OPENCL
     bool doubleSupport = ocl::Device::getDefault().doubleFPConfig() > 0;
     bool needDouble = sdepth == CV_64F || ddepth == CV_64F;
     if( dims <= 2 && cn && _dst.isUMat() && ocl::useOpenCL() &&
@@ -755,7 +757,7 @@ void UMat::convertTo(OutputArray _dst, int _type, double alpha, double beta) con
                 return;
         }
     }
-
+#endif
     Mat m = getMat(ACCESS_READ);
     m.convertTo(_dst, _type, alpha, beta);
 }
@@ -763,7 +765,9 @@ void UMat::convertTo(OutputArray _dst, int _type, double alpha, double beta) con
 UMat& UMat::setTo(InputArray _value, InputArray _mask)
 {
     bool haveMask = !_mask.empty();
+#ifdef HAVE_OPENCL
     int tp = type(), cn = CV_MAT_CN(tp);
+
     if( dims <= 2 && cn <= 4 && CV_MAT_DEPTH(tp) < CV_64F && ocl::useOpenCL() )
     {
         Mat value = _value.getMat();
@@ -802,6 +806,7 @@ UMat& UMat::setTo(InputArray _value, InputArray _mask)
                 return *this;
         }
     }
+#endif
     Mat m = getMat(haveMask ? ACCESS_RW : ACCESS_WRITE);
     m.setTo(_value, _mask);
     return *this;
