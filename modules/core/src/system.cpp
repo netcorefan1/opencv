@@ -85,6 +85,12 @@
   #endif
 #endif
 
+#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+#define TlsSetValue FlsSetValue
+#define TLS_OUT_OF_INDEXES FLS_OUT_OF_INDEXES
+#define TlsGetValue FlsGetValue
+#endif
+
 #ifdef HAVE_WINRT
 #include <wrl/client.h>
 #ifndef __cplusplus_winrt
@@ -871,7 +877,8 @@ public:
 #pragma warning(disable:4505) // unreferenced local function has been removed
 #endif
 
-#ifdef HAVE_WINRT
+#if defined( HAVE_WINRT ) || ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
+
     // using C++11 thread attribute for local thread data
     static __declspec( thread ) TLSStorage* g_tlsdata = NULL;
 

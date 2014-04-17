@@ -59,6 +59,11 @@
 
 // TODO Move to some common place
 static size_t getConfigurationParameterForSize(const char* name, size_t defaultValue)
+#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+{
+   return defaultValue;
+} 
+#else
 {
     const char* envValue = getenv(name);
     if (envValue == NULL)
@@ -83,6 +88,7 @@ static size_t getConfigurationParameterForSize(const char* name, size_t defaultV
         return v * 1024;
     CV_ErrorNoReturn(cv::Error::StsBadArg, cv::format("Invalid value for %s parameter: %s", name, value.c_str()));
 }
+#endif
 
 #include "opencv2/core/opencl/runtime/opencl_clamdblas.hpp"
 #include "opencv2/core/opencl/runtime/opencl_clamdfft.hpp"
@@ -665,7 +671,7 @@ static void* initOpenCLAndLoad(const char* funcname)
     return funcname && handle ? dlsym(handle, funcname) : 0;
 }
 
-#elif defined WIN32 || defined _WIN32
+#elif (defined WIN32 || defined _WIN32) && !((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
 
 #ifndef _WIN32_WINNT           // This is needed for the declaration of TryEnterCriticalSection in winbase.h with Visual Studio 2005 (and older?)
   #define _WIN32_WINNT 0x0400  // http://msdn.microsoft.com/en-us/library/ms686857(VS.85).aspx
@@ -2114,6 +2120,11 @@ static bool parseOpenCLDeviceConfiguration(const std::string& configurationStr,
 }
 
 static cl_device_id selectOpenCLDevice()
+#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+{
+   return NULL;
+}
+#else
 {
     std::string platform, deviceName;
     std::vector<std::string> deviceTypes;
@@ -2257,6 +2268,7 @@ not_found:
     CV_Error(CL_INVALID_DEVICE, "Requested OpenCL device is not found");
     return NULL;
 }
+#endif
 
 struct Context::Impl
 {
