@@ -1911,7 +1911,7 @@ static int computeResizeAreaTab( int ssize, int dsize, int cn, double scale, Dec
     getBufferSizeFunc = (ippiResizeGetBufferSize)ippiResizeGetBufferSize_##TYPE; \
     getSrcOffsetFunc =  (ippiResizeGetSrcOffset)ippiResizeGetSrcOffset_##TYPE;
 
-#if !defined(HAVE_IPP_ICV_ONLY) && IPP_VERSION_X100 >= 701
+#if IPP_VERSION_X100 >= 701
 class IPPresizeInvoker :
     public ParallelLoopBody
 {
@@ -1930,9 +1930,11 @@ public:
 
         switch (type)
         {
+#if 0 // disabled since it breaks tests for CascadeClassifier
             case CV_8UC1:  SET_IPP_RESIZE_PTR(8u,C1);  break;
             case CV_8UC3:  SET_IPP_RESIZE_PTR(8u,C3);  break;
             case CV_8UC4:  SET_IPP_RESIZE_PTR(8u,C4);  break;
+#endif
             case CV_16UC1: SET_IPP_RESIZE_PTR(16u,C1); break;
             case CV_16UC3: SET_IPP_RESIZE_PTR(16u,C3); break;
             case CV_16UC4: SET_IPP_RESIZE_PTR(16u,C4); break;
@@ -2395,7 +2397,7 @@ void cv::resize( InputArray _src, OutputArray _dst, Size dsize,
     double scale_x = 1./inv_scale_x, scale_y = 1./inv_scale_y;
     int k, sx, sy, dx, dy;
 
-#if !defined(HAVE_IPP_ICV_ONLY) && IPP_VERSION_X100 >= 701
+#if IPP_VERSION_X100 >= 701
 #define IPP_RESIZE_EPS 1e-10
 
     double ex = fabs((double)dsize.width / src.cols  - inv_scale_x) / inv_scale_x;
@@ -2411,7 +2413,7 @@ void cv::resize( InputArray _src, OutputArray _dst, Size dsize,
             mode = ippCubic;
 
         if( mode >= 0 && (cn == 1 || cn == 3 || cn == 4) &&
-            (depth == CV_8U || depth == CV_16U || depth == CV_16S || depth == CV_32F ||
+            (depth == CV_16U || depth == CV_16S || depth == CV_32F ||
             (depth == CV_64F && mode == ippLinear)))
         {
             bool ok = true;

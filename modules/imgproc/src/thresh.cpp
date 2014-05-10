@@ -68,26 +68,40 @@ thresh_8u( const Mat& _src, Mat& _dst, uchar thresh, uchar maxval, int type )
         return;
 #endif
 
-#if defined(HAVE_IPP) && !defined(HAVE_IPP_ICV_ONLY)
+#if defined(HAVE_IPP)
     IppiSize sz = { roi.width, roi.height };
+    CV_SUPPRESS_DEPRECATED_START
     switch( type )
     {
     case THRESH_TRUNC:
-        if (0 <= ippiThreshold_GT_8u_C1R(_src.data, (int)src_step, _dst.data, (int)dst_step, sz, thresh))
+#ifndef HAVE_IPP_ICV_ONLY
+        if (_src.data == _dst.data && ippiThreshold_GT_8u_C1IR(_src.data, (int)src_step, sz, thresh) >= 0)
+            return;
+#endif
+        if (ippiThreshold_GT_8u_C1R(_src.data, (int)src_step, _dst.data, (int)dst_step, sz, thresh) >= 0)
             return;
         setIppErrorStatus();
         break;
     case THRESH_TOZERO:
-        if (0 <= ippiThreshold_LTVal_8u_C1R(_src.data, (int)src_step, _dst.data, (int)dst_step, sz, thresh+1, 0))
+#ifndef HAVE_IPP_ICV_ONLY
+        if (_src.data == _dst.data && ippiThreshold_LTVal_8u_C1IR(_src.data, (int)src_step, sz, thresh+1, 0) >= 0)
+            return;
+#endif
+        if (ippiThreshold_LTVal_8u_C1R(_src.data, (int)src_step, _dst.data, (int)dst_step, sz, thresh+1, 0) >= 0)
             return;
         setIppErrorStatus();
         break;
     case THRESH_TOZERO_INV:
-        if (0 <= ippiThreshold_GTVal_8u_C1R(_src.data, (int)src_step, _dst.data, (int)dst_step, sz, thresh, 0))
+#ifndef HAVE_IPP_ICV_ONLY
+        if (_src.data == _dst.data && ippiThreshold_GTVal_8u_C1IR(_src.data, (int)src_step, sz, thresh, 0) >= 0)
+            return;
+#endif
+        if (ippiThreshold_GTVal_8u_C1R(_src.data, (int)src_step, _dst.data, (int)dst_step, sz, thresh, 0) >= 0)
             return;
         setIppErrorStatus();
         break;
     }
+    CV_SUPPRESS_DEPRECATED_END
 #endif
 
     switch( type )
@@ -309,26 +323,40 @@ thresh_16s( const Mat& _src, Mat& _dst, short thresh, short maxval, int type )
         return;
 #endif
 
-#if defined(HAVE_IPP) && !defined(HAVE_IPP_ICV_ONLY)
+#if defined(HAVE_IPP)
     IppiSize sz = { roi.width, roi.height };
+    CV_SUPPRESS_DEPRECATED_START
     switch( type )
     {
     case THRESH_TRUNC:
-        if (0 <= ippiThreshold_GT_16s_C1R(src, (int)src_step*sizeof(src[0]), dst, (int)dst_step*sizeof(dst[0]), sz, thresh))
+#ifndef HAVE_IPP_ICV_ONLY
+        if (_src.data == _dst.data && ippiThreshold_GT_16s_C1IR(dst, (int)dst_step*sizeof(dst[0]), sz, thresh) >= 0)
+            return;
+#endif
+        if (ippiThreshold_GT_16s_C1R(src, (int)src_step*sizeof(src[0]), dst, (int)dst_step*sizeof(dst[0]), sz, thresh) >= 0)
             return;
         setIppErrorStatus();
         break;
     case THRESH_TOZERO:
-        if (0 <= ippiThreshold_LTVal_16s_C1R(src, (int)src_step*sizeof(src[0]), dst, (int)dst_step*sizeof(dst[0]), sz, thresh+1, 0))
+#ifndef HAVE_IPP_ICV_ONLY
+        if (_src.data == _dst.data && ippiThreshold_LTVal_16s_C1IR(dst, (int)dst_step*sizeof(dst[0]), sz, thresh + 1, 0) >= 0)
+            return;
+#endif
+        if (ippiThreshold_LTVal_16s_C1R(src, (int)src_step*sizeof(src[0]), dst, (int)dst_step*sizeof(dst[0]), sz, thresh+1, 0) >= 0)
             return;
         setIppErrorStatus();
         break;
     case THRESH_TOZERO_INV:
-        if (0 <= ippiThreshold_GTVal_16s_C1R(src, (int)src_step*sizeof(src[0]), dst, (int)dst_step*sizeof(dst[0]), sz, thresh, 0))
+#ifndef HAVE_IPP_ICV_ONLY
+        if (_src.data == _dst.data && ippiThreshold_GTVal_16s_C1IR(dst, (int)dst_step*sizeof(dst[0]), sz, thresh, 0) >= 0)
+            return;
+#endif
+        if (ippiThreshold_GTVal_16s_C1R(src, (int)src_step*sizeof(src[0]), dst, (int)dst_step*sizeof(dst[0]), sz, thresh, 0) >= 0)
             return;
         setIppErrorStatus();
         break;
     }
+    CV_SUPPRESS_DEPRECATED_END
 #endif
 
     switch( type )
@@ -503,7 +531,7 @@ thresh_32f( const Mat& _src, Mat& _dst, float thresh, float maxval, int type )
         return;
 #endif
 
-#if defined(HAVE_IPP) && !defined(HAVE_IPP_ICV_ONLY)
+#if defined(HAVE_IPP)
     IppiSize sz = { roi.width, roi.height };
     switch( type )
     {
@@ -683,7 +711,7 @@ getThreshVal_Otsu_8u( const Mat& _src )
         step = size.width;
     }
 
-#if defined(HAVE_IPP) && !defined(HAVE_IPP_ICV_ONLY) && IPP_VERSION_X100 >= 801
+#if IPP_VERSION_X100 >= 801 && !defined(HAVE_IPP_ICV_ONLY)
     IppiSize srcSize = { size.width, size.height };
     Ipp8u thresh;
     CV_SUPPRESS_DEPRECATED_START
