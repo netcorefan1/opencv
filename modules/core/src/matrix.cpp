@@ -2665,7 +2665,7 @@ void cv::hconcat(const Mat* src, size_t nsrc, OutputArray _dst)
     size_t i;
     for( i = 0; i < nsrc; i++ )
     {
-        CV_Assert( !src[i].empty() && src[i].dims <= 2 &&
+        CV_Assert( src[i].dims <= 2 &&
                    src[i].rows == src[0].rows &&
                    src[i].type() == src[0].type());
         totalCols += src[i].cols;
@@ -2705,7 +2705,7 @@ void cv::vconcat(const Mat* src, size_t nsrc, OutputArray _dst)
     size_t i;
     for( i = 0; i < nsrc; i++ )
     {
-        CV_Assert( !src[i].empty() && src[i].dims <= 2 &&
+        CV_Assert(src[i].dims <= 2 &&
                   src[i].cols == src[0].cols &&
                   src[i].type() == src[0].type());
         totalRows += src[i].rows;
@@ -3617,25 +3617,25 @@ namespace cv
 #if IPP_VERSION_X100 > 0
 #define USE_IPP_SORT
 
-typedef IppStatus (CV_STDCALL *IppSortFunc)(void *, int);
+typedef IppStatus (CV_STDCALL * IppSortFunc)(void *, int);
 typedef IppSortFunc IppFlipFunc;
 
 static IppSortFunc getSortFunc(int depth, bool sortDescending)
 {
     if (!sortDescending)
         return depth == CV_8U ? (IppSortFunc)ippsSortAscend_8u_I :
-            depth == CV_16U ? (IppSortFunc)ippsSortAscend_16u_I :
+            /*depth == CV_16U ? (IppSortFunc)ippsSortAscend_16u_I :
             depth == CV_16S ? (IppSortFunc)ippsSortAscend_16s_I :
             depth == CV_32S ? (IppSortFunc)ippsSortAscend_32s_I :
             depth == CV_32F ? (IppSortFunc)ippsSortAscend_32f_I :
-            depth == CV_64F ? (IppSortFunc)ippsSortAscend_64f_I : 0;
+            depth == CV_64F ? (IppSortFunc)ippsSortAscend_64f_I :*/ 0;
     else
         return depth == CV_8U ? (IppSortFunc)ippsSortDescend_8u_I :
-            depth == CV_16U ? (IppSortFunc)ippsSortDescend_16u_I :
+            /*depth == CV_16U ? (IppSortFunc)ippsSortDescend_16u_I :
             depth == CV_16S ? (IppSortFunc)ippsSortDescend_16s_I :
             depth == CV_32S ? (IppSortFunc)ippsSortDescend_32s_I :
             depth == CV_32F ? (IppSortFunc)ippsSortDescend_32f_I :
-            depth == CV_64F ? (IppSortFunc)ippsSortDescend_64f_I : 0;
+            depth == CV_64F ? (IppSortFunc)ippsSortDescend_64f_I :*/ 0;
 }
 
 static IppFlipFunc getFlipFunc(int depth)
@@ -3700,7 +3700,8 @@ template<typename T> static void sort_( const Mat& src, Mat& dst, int flags )
 #endif
         {
 #ifdef USE_IPP_SORT
-            setIppErrorStatus();
+            if (depth == CV_8U)
+                setIppErrorStatus();
 #endif
             std::sort( ptr, ptr + len );
             if( sortDescending )
@@ -3732,7 +3733,7 @@ public:
     const _Tp* arr;
 };
 
-#ifdef USE_IPP_SORT
+#if defined USE_IPP_SORT && 0
 
 typedef IppStatus (CV_STDCALL *IppSortIndexFunc)(void *, int *, int);
 
@@ -3779,7 +3780,7 @@ template<typename T> static void sortIdx_( const Mat& src, Mat& dst, int flags )
     bptr = (T*)buf;
     _iptr = (int*)ibuf;
 
-#ifdef USE_IPP_SORT
+#if defined USE_IPP_SORT && 0
     int depth = src.depth();
     IppSortIndexFunc ippFunc = getSortIndexFunc(depth, sortDescending);
     IppFlipFunc ippFlipFunc = getFlipFunc(depth);
@@ -3803,21 +3804,21 @@ template<typename T> static void sortIdx_( const Mat& src, Mat& dst, int flags )
         for( j = 0; j < len; j++ )
             iptr[j] = j;
 
-#ifdef USE_IPP_SORT
+#if defined USE_IPP_SORT && 0
         if (sortRows || !ippFunc || ippFunc(ptr, iptr, len) < 0)
 #endif
         {
-#ifdef USE_IPP_SORT
+#if defined USE_IPP_SORT && 0
             setIppErrorStatus();
 #endif
             std::sort( iptr, iptr + len, LessThanIdx<T>(ptr) );
             if( sortDescending )
             {
-#ifdef USE_IPP_SORT
+#if defined USE_IPP_SORT && 0
                 if (!ippFlipFunc || ippFlipFunc(iptr, len) < 0)
 #endif
                 {
-#ifdef USE_IPP_SORT
+#if defined USE_IPP_SORT && 0
                     setIppErrorStatus();
 #endif
                     for( j = 0; j < len/2; j++ )
@@ -4049,15 +4050,17 @@ double cv::kmeans( InputArray _data, int K,
                    int flags, OutputArray _centers )
 {
     const int SPP_TRIALS = 3;
-    Mat data = _data.getMat();
-    bool isrow = data.rows == 1 && data.channels() > 1;
-    int N = !isrow ? data.rows : data.cols;
-    int dims = (!isrow ? data.cols : 1)*data.channels();
-    int type = data.depth();
+    Mat data0 = _data.getMat();
+    bool isrow = data0.rows == 1 && data0.channels() > 1;
+    int N = !isrow ? data0.rows : data0.cols;
+    int dims = (!isrow ? data0.cols : 1)*data0.channels();
+    int type = data0.depth();
 
     attempts = std::max(attempts, 1);
-    CV_Assert( data.dims <= 2 && type == CV_32F && K > 0 );
+    CV_Assert( data0.dims <= 2 && type == CV_32F && K > 0 );
     CV_Assert( N >= K );
+
+    Mat data(N, dims, CV_32F, data0.data, isrow ? dims * sizeof(float) : static_cast<size_t>(data0.step));
 
     _bestLabels.create(N, 1, CV_32S, -1, true);
 
