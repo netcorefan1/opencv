@@ -175,6 +175,7 @@ OCV_OPTION(BUILD_WITH_STATIC_CRT    "Enables use of staticaly linked CRT for sta
 OCV_OPTION(BUILD_FAT_JAVA_LIB       "Create fat java wrapper containing the whole OpenCV library" ON IF NOT BUILD_SHARED_LIBS AND CMAKE_COMPILER_IS_GNUCXX )
 OCV_OPTION(BUILD_ANDROID_SERVICE    "Build OpenCV Manager for Google Play" OFF IF ANDROID AND ANDROID_SOURCE_TREE )
 OCV_OPTION(BUILD_ANDROID_PACKAGE    "Build platform-specific package for Google Play" OFF IF ANDROID )
+OCV_OPTION(BUILD_CUDA_STUBS         "Build CUDA modules stubs when no CUDA SDK" OFF  IF (NOT IOS) )
 
 # 3rd party libs
 OCV_OPTION(BUILD_ZLIB               "Build zlib from source"             WIN32 OR APPLE )
@@ -216,6 +217,7 @@ OCV_OPTION(ENABLE_NOISY_WARNINGS      "Show all warnings even if they are too no
 OCV_OPTION(OPENCV_WARNINGS_ARE_ERRORS "Treat warnings as errors"                                 OFF )
 OCV_OPTION(ENABLE_WINRT_MODE          "Build with Windows Runtime support"                       OFF  IF WIN32 )
 OCV_OPTION(ENABLE_WINRT_MODE_NATIVE   "Build with Windows Runtime native C++ support"            OFF  IF WIN32 )
+OCV_OPTION(ANDROID_EXAMPLES_WITH_LIBS "Build binaries of Android examples with native libraries" OFF  IF ANDROID )
 
 
 # ----------------------------------------------------------------------------
