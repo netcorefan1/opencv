@@ -3505,9 +3505,8 @@ public:
     OpenCLBufferPoolImpl()
         : currentReservedSize(0), maxReservedSize(0)
     {
-        // Note: Buffer pool is disabled by default,
-        //       because we didn't receive significant performance improvement
-        maxReservedSize = getConfigurationParameterForSize("OPENCV_OPENCL_BUFFERPOOL_LIMIT", 0);
+        int poolSize = ocl::Device::getDefault().isIntel() ? 1 << 27 : 0;
+        maxReservedSize = getConfigurationParameterForSize("OPENCV_OPENCL_BUFFERPOOL_LIMIT", poolSize);
     }
     virtual ~OpenCLBufferPoolImpl()
     {
@@ -3750,6 +3749,7 @@ public:
                 u->handle = clCreateBuffer(ctx_handle, CL_MEM_COPY_HOST_PTR|CL_MEM_READ_WRITE|createFlags,
                                            u->size, u->origdata, &retval);
                 tempUMatFlags = UMatData::TEMP_COPIED_UMAT;
+
             }
             if(!u->handle || retval != CL_SUCCESS)
                 return false;
@@ -3891,6 +3891,7 @@ public:
                 if(u->data && retval == CL_SUCCESS)
                 {
                     u->markHostCopyObsolete(false);
+                    u->markDeviceMemMapped(true);
                     return;
                 }
 
@@ -3919,6 +3920,7 @@ public:
         if(!u)
             return;
 
+
         CV_Assert(u->handle != 0);
 
         UMatDataAutoLock autolock(u);
@@ -3929,8 +3931,10 @@ public:
 
         cl_command_queue q = (cl_command_queue)Queue::getDefault().ptr();
         cl_int retval = 0;
-        if( !u->copyOnMap() && u->data )
+        if( !u->copyOnMap() && u->deviceMemMapped() )
         {
+            CV_Assert(u->data != NULL);
+            u->markDeviceMemMapped(false);
             CV_Assert( (retval = clEnqueueUnmapMemObject(q,
                                 (cl_mem)u->handle, u->data, 0, 0, 0)) == CL_SUCCESS );
             CV_OclDbgAssert(clFinish(q) == CL_SUCCESS);
