@@ -456,7 +456,7 @@ String tempfile( const char* suffix )
    return String();
 #else
     String fname;
-#ifdef HAVE_WINRT
+#ifndef HAVE_WINRT
     const char *temp_dir = getenv("OPENCV_TEMP_PATH");
 #endif
 
