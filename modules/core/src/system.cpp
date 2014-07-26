@@ -455,10 +455,10 @@ String tempfile( const char* suffix )
 #if ( (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
    return String();
 #else
+    String fname;
 #ifdef HAVE_WINRT
     const char *temp_dir = getenv("OPENCV_TEMP_PATH");
 #endif
-
 
 #if defined WIN32 || defined _WIN32
 #ifdef HAVE_WINRT

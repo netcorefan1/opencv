@@ -2323,6 +2323,7 @@ not_found:
     return NULL;
 }
 #endif
+#endif
 
 struct Context::Impl
 {
