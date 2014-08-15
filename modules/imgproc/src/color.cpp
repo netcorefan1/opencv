@@ -468,10 +468,10 @@ struct IPPGray2BGRAFunctor
 
         const void* srcarray[3] = { src, src, src };
         Mat temp(rows, cols, CV_MAKETYPE(depth, 3));
-        if(func1(srcarray, srcStep, temp.data, (int)temp.step[0], ippiSize(cols, rows)) < 0)
+        if(func1(srcarray, srcStep, temp.ptr(), (int)temp.step[0], ippiSize(cols, rows)) < 0)
             return false;
         int order[4] = {0, 1, 2, 3};
-        return func2(temp.data, (int)temp.step[0], dst, dstStep, ippiSize(cols, rows), order) >= 0;
+        return func2(temp.ptr(), (int)temp.step[0], dst, dstStep, ippiSize(cols, rows), order) >= 0;
     }
 private:
     ippiGeneralFunc func1;
@@ -496,9 +496,9 @@ struct IPPReorderGeneralFunctor
 
         Mat temp;
         temp.create(rows, cols, CV_MAKETYPE(depth, 3));
-        if(func1(src, srcStep, temp.data, (int)temp.step[0], ippiSize(cols, rows), order) < 0)
+        if(func1(src, srcStep, temp.ptr(), (int)temp.step[0], ippiSize(cols, rows), order) < 0)
             return false;
-        return func2(temp.data, (int)temp.step[0], dst, dstStep, ippiSize(cols, rows)) >= 0;
+        return func2(temp.ptr(), (int)temp.step[0], dst, dstStep, ippiSize(cols, rows)) >= 0;
     }
 private:
     ippiReorderFunc func1;
@@ -524,9 +524,9 @@ struct IPPGeneralReorderFunctor
 
         Mat temp;
         temp.create(rows, cols, CV_MAKETYPE(depth, 3));
-        if(func1(src, srcStep, temp.data, (int)temp.step[0], ippiSize(cols, rows)) < 0)
+        if(func1(src, srcStep, temp.ptr(), (int)temp.step[0], ippiSize(cols, rows)) < 0)
             return false;
-        return func2(temp.data, (int)temp.step[0], dst, dstStep, ippiSize(cols, rows), order) >= 0;
+        return func2(temp.ptr(), (int)temp.step[0], dst, dstStep, ippiSize(cols, rows), order) >= 0;
     }
 private:
     ippiGeneralFunc func1;
@@ -3381,18 +3381,16 @@ void cv::cvtColor( InputArray _src, OutputArray _dst, int code, int dcn )
             _dst.create(sz, CV_8UC2);
             dst = _dst.getMat();
 
-#ifdef HAVE_IPP
+#if defined(HAVE_IPP) && 0 // breaks OCL accuracy tests
             CV_SUPPRESS_DEPRECATED_START
-#if 0
+
             if (code == CV_BGR2BGR565 && scn == 3)
             {
                 if (CvtColorIPPLoop(src, dst, IPPGeneralFunctor((ippiGeneralFunc)ippiBGRToBGR565_8u16u_C3R)))
                     return;
                 setIppErrorStatus();
             }
-            else
-#endif
-            if (code == CV_BGRA2BGR565 && scn == 4)
+            else if (code == CV_BGRA2BGR565 && scn == 4)
             {
                 if (CvtColorIPPLoopCopy(src, dst,
                                         IPPReorderGeneralFunctor(ippiSwapChannelsC4C3RTab[depth],
@@ -3787,6 +3785,7 @@ void cv::cvtColor( InputArray _src, OutputArray _dst, int code, int dcn )
 #if defined (HAVE_IPP) && (IPP_VERSION_MAJOR >= 7)
             if( depth == CV_8U || depth == CV_16U )
             {
+#if 0 // breaks OCL accuracy tests
                 if( code == CV_BGR2HSV_FULL && scn == 3 )
                 {
                     if( CvtColorIPPLoopCopy(src, dst, IPPReorderGeneralFunctor(ippiSwapChannelsC3RTab[depth], ippiRGB2HSVTab[depth], 2, 1, 0, depth)) )
@@ -3799,15 +3798,16 @@ void cv::cvtColor( InputArray _src, OutputArray _dst, int code, int dcn )
                         return;
                     setIppErrorStatus();
                 }
-                else if( code == CV_RGB2HSV_FULL && scn == 3 && depth == CV_16U )
-                {
-                    if( CvtColorIPPLoopCopy(src, dst, IPPGeneralFunctor(ippiRGB2HSVTab[depth])) )
-                        return;
-                    setIppErrorStatus();
-                }
                 else if( code == CV_RGB2HSV_FULL && scn == 4 )
                 {
                     if( CvtColorIPPLoop(src, dst, IPPReorderGeneralFunctor(ippiSwapChannelsC4C3RTab[depth], ippiRGB2HSVTab[depth], 0, 1, 2, depth)) )
+                        return;
+                    setIppErrorStatus();
+                } else
+#endif
+                if( code == CV_RGB2HSV_FULL && scn == 3 && depth == CV_16U )
+                {
+                    if( CvtColorIPPLoopCopy(src, dst, IPPGeneralFunctor(ippiRGB2HSVTab[depth])) )
                         return;
                     setIppErrorStatus();
                 }
