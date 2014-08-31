@@ -203,7 +203,7 @@ const uchar g_Saturate8u[] =
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
     255
 };
-
+/*
 const char* g_HersheyGlyphs[] = {
  "",
  "MWRMNV RMVV PSTS",
@@ -3506,7 +3506,7 @@ const char* g_HersheyGlyphs[] = {
  "",
  "",
  0 };
-
+*/
 }
 
 /* End of file. */

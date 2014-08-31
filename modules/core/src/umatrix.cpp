@@ -97,8 +97,10 @@ MatAllocator* UMat::getStdAllocator()
 
 MatAllocator* UMat::getStdAllocator(MatAllocator* matAllocator)
 {
-   if (ocl::haveOpenCL())
+#ifdef HAVE_OPENCL
+    if( ocl::haveOpenCL() && ocl::useOpenCL() )
       return ocl::getOpenCLAllocator(matAllocator);
+#endif	  
    return matAllocator;
 }
 
