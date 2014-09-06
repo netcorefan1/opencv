@@ -61,7 +61,11 @@
 // TODO Move to some common place
 static bool getBoolParameter(const char* name, bool defaultValue)
 {
+    #if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+    const char* envValue = NULL;
+    #else
     const char* envValue = getenv(name);
+    #endif
     if (envValue == NULL)
     {
         return defaultValue;
