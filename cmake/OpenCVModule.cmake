@@ -837,6 +837,10 @@ function(ocv_add_perf_tests)
         RUNTIME_OUTPUT_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}"
       )
 
+	  IF(DEFINED EMGUCV_PLATFORM_TOOLSET)
+        set_target_properties(${the_target} PROPERTIES PLATFORM_TOOLSET ${EMGUCV_PLATFORM_TOOLSET})
+      ENDIF()
+  
       if(ENABLE_SOLUTION_FOLDERS)
         set_target_properties(${the_target} PROPERTIES FOLDER "tests performance")
       endif()
@@ -892,6 +896,10 @@ function(ocv_add_accuracy_tests)
         RUNTIME_OUTPUT_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}"
       )
 
+	  IF(DEFINED EMGUCV_PLATFORM_TOOLSET)
+        set_target_properties(${the_target} PROPERTIES PLATFORM_TOOLSET ${EMGUCV_PLATFORM_TOOLSET})
+      ENDIF()
+	  
       if(ENABLE_SOLUTION_FOLDERS)
         set_target_properties(${the_target} PROPERTIES FOLDER "tests accuracy")
       endif()
@@ -935,6 +943,9 @@ function(ocv_add_samples)
         ocv_target_link_libraries(${the_target} ${samples_deps})
         set_target_properties(${the_target} PROPERTIES PROJECT_LABEL "(sample) ${name}")
 
+		IF(DEFINED EMGUCV_PLATFORM_TOOLSET)
+          set_target_properties(${the_target} PROPERTIES PLATFORM_TOOLSET ${EMGUCV_PLATFORM_TOOLSET})
+        ENDIF()
         if(ENABLE_SOLUTION_FOLDERS)
           set_target_properties(${the_target} PROPERTIES
             OUTPUT_NAME "${module_id}-example-${name}"
