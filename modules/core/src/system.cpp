@@ -255,7 +255,7 @@ struct HWFeatures
 
     #if defined _MSC_VER && (defined _M_IX86 || defined _M_X64)
         __cpuidex(cpuid_data, 7, 0);
-    #elif defined __GNUC__ && (defined __i386__ || defined __x86_64__)
+    #elif defined __GNUC__ && (defined __i386__ || defined __x86_64__) && (!ANDROID)
         #ifdef __x86_64__
         asm __volatile__
         (
