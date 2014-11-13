@@ -58,6 +58,12 @@
 #  endif
 #endif
 
+#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
+#    undef USE_ZLIB
+#    define USE_ZLIB 0
+     typedef void* gzFile;
+#endif
+
 #if USE_ZLIB
 #  ifndef _LFS64_LARGEFILE
 #    define _LFS64_LARGEFILE 0
