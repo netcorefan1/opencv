@@ -69,7 +69,7 @@
     #define HAVE_GCD
 #endif
 
-#if defined _MSC_VER && _MSC_VER >= 1600 && !((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
+#if defined _MSC_VER && _MSC_VER >= 1600 && !((defined WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_APP || WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP))
     #define HAVE_CONCURRENCY
 #endif
 

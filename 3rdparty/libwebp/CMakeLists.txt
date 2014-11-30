@@ -29,8 +29,9 @@ endif()
 # ----------------------------------------------------------------------------------
 #         Define the library target:
 # ----------------------------------------------------------------------------------
-
-add_definitions(-DWEBP_USE_THREAD)
+IF(NOT ENABLE_WINRT_MODE)
+  add_definitions(-DWEBP_USE_THREAD)
+ENDIF()
 
 add_library(${WEBP_LIBRARY} STATIC ${lib_srcs} ${lib_hdrs})
 

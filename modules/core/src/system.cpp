@@ -85,12 +85,6 @@
   #endif
 #endif
 
-#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
-#define TlsSetValue FlsSetValue
-#define TLS_OUT_OF_INDEXES FLS_OUT_OF_INDEXES
-#define TlsGetValue FlsGetValue
-#endif
-
 #ifdef HAVE_WINRT
 #include <wrl/client.h>
 #ifndef __cplusplus_winrt
@@ -176,10 +170,6 @@ std::wstring GetTempFileNameWinRT(std::wstring prefix)
 
 #ifdef ANDROID
 # include <android/log.h>
-#endif
-
-#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
-#include <synchapi.h>
 #endif
 
 namespace cv
@@ -452,9 +442,6 @@ String format( const char* fmt, ... )
 
 String tempfile( const char* suffix )
 {
-#if ( (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
-   return String();
-#else
     String fname;
 #ifndef HAVE_WINRT
     const char *temp_dir = getenv("OPENCV_TEMP_PATH");
@@ -531,8 +518,6 @@ String tempfile( const char* suffix )
             return fname + suffix;
     }
     return fname;
-#endif
-
 }
 
 static CvErrorCallback customErrorCallback = 0;
@@ -772,7 +757,6 @@ struct Mutex::Impl
 #endif
         refcount = 1;
     }
-
     ~Impl() { DeleteCriticalSection(&cs); }
 
     void lock() { EnterCriticalSection(&cs); }
@@ -872,8 +856,7 @@ public:
 #pragma warning(disable:4505) // unreferenced local function has been removed
 #endif
 
-#if defined( HAVE_WINRT ) || ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
-
+#ifdef HAVE_WINRT
     // using C++11 thread attribute for local thread data
     static __declspec( thread ) TLSStorage* g_tlsdata = NULL;
 

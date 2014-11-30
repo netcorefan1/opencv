@@ -924,7 +924,6 @@ cvSetData( CvArr* arr, void* data, int step )
     }
     else if( CV_IS_IMAGE_HDR( arr ))
     {
-        //CV_Error(CV_BadStep, "is image" );
         IplImage* img = (IplImage*)arr;
 
         pix_size = ((img->depth & 255) >> 3)*img->nChannels;
@@ -949,10 +948,6 @@ cvSetData( CvArr* arr, void* data, int step )
             img->align = 8;
         else
             img->align = 4;
-
-        char tmpStr[500];
-        sprintf(tmpStr, "image nSize: %d", img->nSize);
-        //CV_Error(CV_BadStep, tmpStr);
     }
     else if( CV_IS_MATND_HDR( arr ))
     {
@@ -1223,13 +1218,6 @@ CV_IMPL CvSize
 cvGetSize( const CvArr* arr )
 {
     CvSize size;
-
-    /*
-    IplImage* tmpImg = (IplImage*)arr;
-    char s[500];
-    sprintf(s, "nSize = %d; sizeOf(IplImage): %d", tmpImg->nSize, sizeof(IplImage));
-    CV_Error( CV_StsBadArg, s);
-    */
 
     if( CV_IS_MAT_HDR_Z( arr ))
     {

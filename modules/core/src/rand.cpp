@@ -62,12 +62,6 @@
     #include "emmintrin.h"
 #endif
 
-#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
-#define TlsSetValue FlsSetValue
-#define TLS_OUT_OF_INDEXES FLS_OUT_OF_INDEXES
-#define TlsGetValue FlsGetValue
-#endif
-
 namespace cv
 {
 

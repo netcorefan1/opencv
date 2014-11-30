@@ -51,11 +51,7 @@ namespace
 {
     struct dirent
     {
-#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
-        char d_name[260];
-#else
         const char* d_name;
-#endif
     };
 
     struct DIR
@@ -80,11 +76,6 @@ namespace
     DIR* opendir(const char* path)
     {
         DIR* dir = new DIR;
-
-#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
-        memset(dir->ent.d_name, 0, sizeof(char) * 260);
-        dir->handle = FindFirstFileEx( (LPCWSTR) (cv::String(path) + "\\*").c_str(), FindExInfoStandard, &dir->data, FindExSearchNameMatch, NULL, 0);
-#else
         dir->ent.d_name = 0;
 #ifdef HAVE_WINRT
         cv::String full_path = cv::String(path) + "\\*";
@@ -96,7 +87,6 @@ namespace
 #else
         dir->handle = ::FindFirstFileExA((cv::String(path) + "\\*").c_str(),
             FindExInfoStandard, &dir->data, FindExSearchNameMatch, NULL, 0);
-#endif
 #endif
         if(dir->handle == INVALID_HANDLE_VALUE)
         {
@@ -122,10 +112,6 @@ namespace
         wcstombs(aname, dir->data.cFileName, asize);
         dir->ent.d_name = aname;
 #else
-
-#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
-        wcstombs( dir->ent.d_name, dir->data.cFileName, 260);
-#else
         if (dir->ent.d_name != 0)
         {
             if (::FindNextFileA(dir->handle, &dir->data) != TRUE)
@@ -134,7 +120,6 @@ namespace
         dir->ent.d_name = dir->data.cFileName;
 #endif
         return &dir->ent;
-#endif
     }
 
     void closedir(DIR* dir)
@@ -155,22 +140,12 @@ const char native_separator = '/';
 static bool isDir(const cv::String& path, DIR* dir)
 {
 #if defined WIN32 || defined _WIN32 || defined WINCE
-   DWORD attributes;
-   BOOL status = TRUE;
-   if (dir)
-      attributes = dir->data.dwFileAttributes;
-   else
-   {
-#if ((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP )
-      WIN32_FILE_ATTRIBUTE_DATA myInfo;
-      BOOL bOk = GetFileAttributesEx((LPCWSTR) path.c_str(), GetFileExInfoStandard, &myInfo);
-      if (!bOk)
-      {
-         return false;
-      }
-      attributes = myInfo.dwFileAttributes;
-#else
-
+    DWORD attributes;
+    BOOL status = TRUE;
+    if (dir)
+        attributes = dir->data.dwFileAttributes;
+    else
+    {
         WIN32_FILE_ATTRIBUTE_DATA all_attrs;
 #ifdef HAVE_WINRT
         wchar_t wpath[MAX_PATH];
@@ -181,8 +156,7 @@ static bool isDir(const cv::String& path, DIR* dir)
         status = ::GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &all_attrs);
 #endif
         attributes = all_attrs.dwFileAttributes;
-#endif
-   }
+    }
 
     return status && ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0);
 #else

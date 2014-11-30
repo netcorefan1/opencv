@@ -5353,7 +5353,6 @@ CvMatND::CvMatND(const cv::Mat& m)
     type |= m.flags & cv::Mat::CONTINUOUS_FLAG;
 }
 
-
 _IplImage::_IplImage(const cv::Mat& m)
 {
     CV_Assert( m.dims <= 2 );
