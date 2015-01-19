@@ -159,8 +159,13 @@ macro(ocv_add_module _name)
     endif()
 
     # add self to the world dependencies
+    # add to world only extra modules (ON) or only main modules (OFF)
+    set(__expected_extra 0)
+    if (OPENCV_EXTRA_WORLD)
+        set(__expected_extra 1)
+    endif()
     if((NOT DEFINED OPENCV_MODULE_IS_PART_OF_WORLD AND NOT OPENCV_MODULE_${the_module}_CLASS STREQUAL "BINDINGS"
-        AND NOT OPENCV_PROCESSING_EXTRA_MODULES)
+        AND __expected_extra EQUAL OPENCV_PROCESSING_EXTRA_MODULES)
         OR OPENCV_MODULE_IS_PART_OF_WORLD
         )
       set(OPENCV_MODULE_${the_module}_IS_PART_OF_WORLD ON CACHE INTERNAL "")
@@ -786,7 +791,7 @@ macro(__ocv_parse_test_sources tests_type)
       set(__file_group_sources "")
     elseif(arg STREQUAL "DEPENDS_ON")
       set(__currentvar "OPENCV_${tests_type}_${the_module}_DEPS")
-    elseif("${__currentvar}" STREQUAL "__file_group_sources" AND NOT __file_group_name)
+    elseif(" ${__currentvar}" STREQUAL " __file_group_sources" AND NOT __file_group_name) # spaces to avoid CMP0054
       set(__file_group_name "${arg}")
     else()
       list(APPEND ${__currentvar} "${arg}")

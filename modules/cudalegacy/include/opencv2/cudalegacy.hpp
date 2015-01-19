@@ -43,10 +43,30 @@
 #ifndef __OPENCV_CUDALEGACY_HPP__
 #define __OPENCV_CUDALEGACY_HPP__
 
+#include "opencv2/core/cuda.hpp"
 #include "opencv2/cudalegacy/NCV.hpp"
 #include "opencv2/cudalegacy/NPP_staging.hpp"
 #include "opencv2/cudalegacy/NCVPyramid.hpp"
 #include "opencv2/cudalegacy/NCVHaarObjectDetection.hpp"
 #include "opencv2/cudalegacy/NCVBroxOpticalFlow.hpp"
+
+/**
+  @addtogroup cuda
+  @{
+    @defgroup cudalegacy Legacy support
+  @}
+*/
+
+namespace cv { namespace cuda {
+
+class CV_EXPORTS ImagePyramid : public Algorithm
+{
+public:
+    virtual void getLayer(OutputArray outImg, Size outRoi, Stream& stream = Stream::Null()) const = 0;
+};
+
+CV_EXPORTS Ptr<ImagePyramid> createImagePyramid(InputArray img, int nLayers = -1, Stream& stream = Stream::Null());
+
+}}
 
 #endif /* __OPENCV_CUDALEGACY_HPP__ */
