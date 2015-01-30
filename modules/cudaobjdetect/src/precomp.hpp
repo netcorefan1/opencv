@@ -40,51 +40,23 @@
 //
 //M*/
 
-#include "test_precomp.hpp"
+#ifndef __OPENCV_PRECOMP_H__
+#define __OPENCV_PRECOMP_H__
 
-#ifdef HAVE_CUDA
+#include <limits>
 
-using namespace std;
-using namespace cv;
+#include "opencv2/cudaobjdetect.hpp"
+#include "opencv2/cudaarithm.hpp"
+#include "opencv2/cudawarping.hpp"
+#include "opencv2/objdetect.hpp"
 
-struct CompactPoints : testing::TestWithParam<cuda::DeviceInfo>
-{
-    virtual void SetUp() { cuda::setDevice(GetParam().deviceID()); }
-};
+#include "opencv2/core/private.cuda.hpp"
+#include "opencv2/core/utility.hpp"
 
-CUDA_TEST_P(CompactPoints, CanCompactizeSmallInput)
-{
-    Mat src0(1, 3, CV_32FC2);
-    src0.at<Point2f>(0,0) = Point2f(0,0);
-    src0.at<Point2f>(0,1) = Point2f(0,1);
-    src0.at<Point2f>(0,2) = Point2f(0,2);
+#include "opencv2/opencv_modules.hpp"
 
-    Mat src1(1, 3, CV_32FC2);
-    src1.at<Point2f>(0,0) = Point2f(1,0);
-    src1.at<Point2f>(0,1) = Point2f(1,1);
-    src1.at<Point2f>(0,2) = Point2f(1,2);
+#ifdef HAVE_OPENCV_CUDALEGACY
+#  include "opencv2/cudalegacy/private.hpp"
+#endif
 
-    Mat mask(1, 3, CV_8U);
-    mask.at<uchar>(0,0) = 1;
-    mask.at<uchar>(0,1) = 0;
-    mask.at<uchar>(0,2) = 1;
-
-    cuda::GpuMat dsrc0(src0), dsrc1(src1), dmask(mask);
-    cuda::compactPoints(dsrc0, dsrc1, dmask);
-
-    dsrc0.download(src0);
-    dsrc1.download(src1);
-
-    ASSERT_EQ(2, src0.cols);
-    ASSERT_EQ(2, src1.cols);
-
-    ASSERT_TRUE(src0.at<Point2f>(0,0) == Point2f(0,0));
-    ASSERT_TRUE(src0.at<Point2f>(0,1) == Point2f(0,2));
-
-    ASSERT_TRUE(src1.at<Point2f>(0,0) == Point2f(1,0));
-    ASSERT_TRUE(src1.at<Point2f>(0,1) == Point2f(1,2));
-}
-
-INSTANTIATE_TEST_CASE_P(CUDA_GlobalMotion, CompactPoints, ALL_DEVICES);
-
-#endif // HAVE_CUDA
+#endif /* __OPENCV_PRECOMP_H__ */
