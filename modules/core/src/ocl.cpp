@@ -64,11 +64,15 @@
 // TODO Move to some common place
 static bool getBoolParameter(const char* name, bool defaultValue)
 {
-#if (defined WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_APP || WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP)
+/*
+ * If your system doesn't support getenv(), define NO_GETENV to disable
+ * this feature.
+ */
+#ifdef NO_GETENV
     const char* envValue = NULL;
-    #else
+#else
     const char* envValue = getenv(name);
-    #endif
+#endif
     if (envValue == NULL)
     {
         return defaultValue;
@@ -90,11 +94,7 @@ static bool getBoolParameter(const char* name, bool defaultValue)
 static size_t getConfigurationParameterForSize(const char* name, size_t defaultValue)
 #if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
 {
-   return defaultValue;
-} 
-#else
-{
-#ifdef HAVE_WINRT
+#ifdef NO_GETENV
     const char* envValue = NULL;
 #else
     const char* envValue = getenv(name);
@@ -738,7 +738,7 @@ static void* initOpenCLAndLoad(const char* funcname)
     static HMODULE handle = 0;
     if (!handle)
     {
-#ifndef HAVE_WINRT
+#ifndef WINRT
         if(!initialized)
         {
             handle = LoadLibraryA("OpenCL.dll");
@@ -2241,7 +2241,7 @@ static bool parseOpenCLDeviceConfiguration(const std::string& configurationStr,
     return true;
 }
 
-#ifdef HAVE_WINRT
+#ifdef WINRT
 static cl_device_id selectOpenCLDevice()
 {
     return NULL;
