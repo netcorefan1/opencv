@@ -92,7 +92,6 @@ static bool getBoolParameter(const char* name, bool defaultValue)
 
 // TODO Move to some common place
 static size_t getConfigurationParameterForSize(const char* name, size_t defaultValue)
-#if (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP
 {
 #ifdef NO_GETENV
     const char* envValue = NULL;
@@ -121,7 +120,7 @@ static size_t getConfigurationParameterForSize(const char* name, size_t defaultV
         return v * 1024;
     CV_ErrorNoReturn(cv::Error::StsBadArg, cv::format("Invalid value for %s parameter: %s", name, value.c_str()));
 }
-#endif
+
 
 #if CV_OPENCL_SHOW_SVM_LOG
 // TODO add timestamp logging
