@@ -294,6 +294,17 @@ TLSData<CoreTLSData>& getCoreTlsData();
 #define CL_RUNTIME_EXPORT
 #endif
 
+
+
+
+
+
+#ifndef HAVE_PTHREADS
+#if !(defined WIN32 || defined _WIN32 || defined WINCE || defined HAVE_WINRT)
+#define HAVE_PTHREADS 1
+#endif
+#endif
+
 namespace ocl
 {
     MatAllocator* getOpenCLAllocator();

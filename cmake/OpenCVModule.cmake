@@ -786,9 +786,14 @@ macro(_ocv_create_module)
 
   ocv_install_target(${the_module} EXPORT OpenCVModules OPTIONAL
     RUNTIME DESTINATION bin${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER} COMPONENT main
-    LIBRARY DESTINATION bin${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER} COMPONENT main
+    LIBRARY DESTINATION bin${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER} COMPONENT main NAMELINK_SKIP
     ARCHIVE DESTINATION ${OPENCV_LIB_INSTALL_PATH} COMPONENT main
     )
+  get_target_property(_target_type ${the_module} TYPE)
+  if("${_target_type}" STREQUAL "SHARED_LIBRARY")
+    install(TARGETS ${the_module}
+      LIBRARY DESTINATION bin${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER} COMPONENT main NAMELINK_ONLY)
+  endif()
 
   foreach(m ${OPENCV_MODULE_${the_module}_CHILDREN} ${the_module})
     # only "public" headers need to be installed
