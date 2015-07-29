@@ -16,7 +16,7 @@ if(WINRT)
 endif(WINRT)
 
 if(OPENCL_FOUND)
-  if(NOT HAVE_OPENCL_STATIC)
+  if((NOT HAVE_OPENCL_STATIC) AND (NOT ANDROID))
     try_compile(__VALID_OPENCL
       "${OpenCV_BINARY_DIR}"
       "${OpenCV_SOURCE_DIR}/cmake/checks/opencl.cpp"
