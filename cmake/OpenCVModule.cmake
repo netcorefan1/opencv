@@ -686,6 +686,10 @@ macro(ocv_create_module)
   endif()
 
   if(WINRT)
+    if(WINRT_8_1)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /ZW")
+    endif()
+  
     # removing APPCONTAINER from modules to run from console
     # in case of usual starting of WinRT test apps output is missing
     # so starting of console version w/o APPCONTAINER is required to get test results
