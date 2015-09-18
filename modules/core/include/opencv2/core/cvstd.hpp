@@ -413,6 +413,11 @@ struct Ptr
 
     void addref();
 
+#ifdef CV_CXX_MOVE_SEMANTICS
+    Ptr(Ptr&& o);
+    Ptr& operator = (Ptr&& o);
+#endif
+
 private:
     detail::PtrOwner* owner;
     T* stored;
@@ -898,6 +903,7 @@ size_t String::find_first_of(const String& str, size_t pos) const
 inline
 size_t String::find_first_of(const char* s, size_t pos) const
 {
+    if (len_ == 0) return npos;
     if (pos >= len_ || !s[0]) return npos;
     const char* lmax = cstr_ + len_;
     for (const char* i = cstr_ + pos; i < lmax; ++i)
@@ -912,6 +918,7 @@ size_t String::find_first_of(const char* s, size_t pos) const
 inline
 size_t String::find_last_of(const char* s, size_t pos, size_t n) const
 {
+    if (len_ == 0) return npos;
     if (pos >= len_) pos = len_ - 1;
     for (const char* i = cstr_ + pos; i >= cstr_; --i)
     {
@@ -937,6 +944,7 @@ size_t String::find_last_of(const String& str, size_t pos) const
 inline
 size_t String::find_last_of(const char* s, size_t pos) const
 {
+    if (len_ == 0) return npos;
     if (pos >= len_) pos = len_ - 1;
     for (const char* i = cstr_ + pos; i >= cstr_; --i)
     {
