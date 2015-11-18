@@ -41,6 +41,7 @@
 //M*/
 
 #include "precomp.hpp"
+#include <ppl.h>
 
 #if defined WIN32 || defined WINCE
     #include <windows.h>
@@ -108,7 +109,14 @@
         #include <dispatch/dispatch.h>
         #include <pthread.h>
     #elif defined WINRT
-        #include <ppltasks.h>
+#include <ntverp.h>
+#if VER_PRODUCTBUILD > 9600
+// Windows 10+ SDK
+#include <ppl.h>
+#else
+// Windows 8.0, 8.1
+#include <ppltasks.h>
+#endif
     #elif defined HAVE_CONCURRENCY
         #include <ppl.h>
     #endif
