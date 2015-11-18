@@ -7,9 +7,9 @@ ocv_add_module(videoio opencv_imgproc opencv_imgcodecs WRAP java python)
 #   Jose Luis Blanco, 2008
 # ----------------------------------------------------------------------------
 
-if(WINRT_10_0)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /ZW")
-endif()
+#if(WINRT_8_1)
+#  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /ZW")
+#endif()
 
 if(APPLE)
   ocv_include_directories(${ZLIB_INCLUDE_DIRS})

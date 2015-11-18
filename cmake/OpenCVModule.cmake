@@ -706,7 +706,7 @@ macro(ocv_create_module)
   endif()
 
   if(WINRT)
-    if(WINRT_8_1)
+    if(WINRT_8_1 OR WINRT_10_0)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /ZW")
     endif()
   
