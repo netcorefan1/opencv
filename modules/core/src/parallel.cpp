@@ -41,7 +41,6 @@
 //M*/
 
 #include "precomp.hpp"
-#include <ppl.h>
 
 #if defined WIN32 || defined WINCE
     #include <windows.h>
