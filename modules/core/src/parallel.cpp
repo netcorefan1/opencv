@@ -107,15 +107,10 @@
     #elif defined HAVE_GCD
         #include <dispatch/dispatch.h>
         #include <pthread.h>
-    #elif defined WINRT
-#include <ntverp.h>
-#if VER_PRODUCTBUILD > 9600
-// Windows 10+ SDK
-#include <ppl.h>
-#else
-// Windows 8.0, 8.1
-#include <ppltasks.h>
-#endif
+    #elif defined WINRT_10_0 
+        #include <ppl.h>
+    #elif defined WINRT // Windows 8.0, 8.1
+        #include <ppltasks.h>
     #elif defined HAVE_CONCURRENCY
         #include <ppl.h>
     #endif
