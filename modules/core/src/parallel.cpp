@@ -107,9 +107,7 @@
     #elif defined HAVE_GCD
         #include <dispatch/dispatch.h>
         #include <pthread.h>
-    #elif defined WINRT_10_0 
-        #include <ppl.h>
-    #elif defined WINRT // Windows 8.0, 8.1
+    #elif defined WINRT && _MSC_VER < 1900
         #include <ppltasks.h>
     #elif defined HAVE_CONCURRENCY
         #include <ppl.h>

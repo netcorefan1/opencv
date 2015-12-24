@@ -91,6 +91,10 @@ if(HAVE_DC1394)
 endif(HAVE_DC1394)
 
 if(HAVE_GSTREAMER)
+  IF(WIN32)
+    INCLUDE_DIRECTORIES(${GSTREAMER_INCLUDE_DIR})
+    list(APPEND VIDEOIO_LIBRARIES ${GSTREAMER_LIBRARIES})
+  ENDIF(WIN32)
   list(APPEND videoio_srcs ${CMAKE_CURRENT_LIST_DIR}/src/cap_gstreamer.cpp)
 endif(HAVE_GSTREAMER)
 
@@ -184,7 +188,6 @@ if(HAVE_GPHOTO2)
 endif(HAVE_GPHOTO2)
 
 if(IOS)
-  add_definitions(-DHAVE_IOS=1)
   list(APPEND videoio_srcs
        ${CMAKE_CURRENT_LIST_DIR}/src/cap_ios_abstract_camera.mm
        ${CMAKE_CURRENT_LIST_DIR}/src/cap_ios_photo_camera.mm
@@ -262,6 +265,11 @@ if(WIN32 AND WITH_FFMPEG)
   endif()
 
   install(FILES "${ffmpeg_path}" DESTINATION ${OPENCV_BIN_INSTALL_PATH} COMPONENT libs RENAME "${ffmpeg_bare_name_ver}")
+
+  if(INSTALL_CREATE_DISTRIB)
+    install(FILES "${OpenCV_SOURCE_DIR}/3rdparty/ffmpeg/opencv_ffmpeg.dll" DESTINATION "bin/" COMPONENT libs RENAME "opencv_ffmpeg${OPENCV_DLLVERSION}.dll")
+    install(FILES "${OpenCV_SOURCE_DIR}/3rdparty/ffmpeg/opencv_ffmpeg_64.dll" DESTINATION "bin/" COMPONENT libs RENAME "opencv_ffmpeg${OPENCV_DLLVERSION}_64.dll")
+  endif()
 endif()
 endmacro()
 
