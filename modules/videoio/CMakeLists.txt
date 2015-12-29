@@ -38,7 +38,7 @@ list(REMOVE_ITEM videoio_ext_hdrs "${CMAKE_CURRENT_LIST_DIR}/include/opencv2/${n
 # Dependencies used by the implementation referenced
 # below are not available on WinRT 8.0.
 # Enabling it for WiRT 8.1+ only.
-if(DEFINED WINRT AND NOT DEFINED WINRT_8_0 AND NOT DEFINED WINRT_10_0 AND NOT DEFINED ENABLE_WINRT_MODE_NATIVE)
+if(DEFINED WINRT AND NOT DEFINED WINRT_8_0 AND NOT DEFINED WINRT_10 AND NOT DEFINED ENABLE_WINRT_MODE_NATIVE)
     # WinRT detected. Adding WinRT API header
     message(STATUS "  ${name}: WinRT detected. Adding WinRT API header")
     list(APPEND videoio_ext_hdrs "${CMAKE_CURRENT_LIST_DIR}/include/opencv2/${name}/cap_winrt.hpp")
