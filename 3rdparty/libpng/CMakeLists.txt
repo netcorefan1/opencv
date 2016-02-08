@@ -3,7 +3,7 @@
 #
 # ----------------------------------------------------------------------------
 
-if(ENABLE_NEON)
+if(ENABLE_NEON AND NOT APPLE) #PNG neon optimization is not able to compile for iOS
   project(${PNG_LIBRARY} C ASM)
 else()
   project(${PNG_LIBRARY} C)
@@ -27,8 +27,9 @@ ocv_include_directories("${CMAKE_CURRENT_SOURCE_DIR}" ${ZLIB_INCLUDE_DIRS})
 file(GLOB lib_srcs *.c)
 file(GLOB lib_hdrs *.h)
 
-
-if(ENABLE_NEON)
+if (APPLE)
+  add_definitions(-DPNG_ARM_NEON_OPT=0) #PNG neon optimization is not able to compile for iOS
+elseif(ENABLE_NEON)
   list(APPEND lib_srcs arm/arm_init.c arm/filter_neon.S arm/filter_neon_intrinsics.c)
   add_definitions(-DPNG_ARM_NEON_OPT=2)
 endif()
