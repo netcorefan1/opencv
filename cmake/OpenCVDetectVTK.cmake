@@ -2,8 +2,13 @@ if(NOT WITH_VTK)
   return()
 endif()
 
+# VTK 7.x components
+find_package(VTK QUIET COMPONENTS vtkRenderingOpenGL2 vtkInteractionStyle vtkRenderingLOD vtkIOPLY vtkFiltersTexture vtkRenderingFreeType vtkIOExport NO_MODULE)
+
 # VTK 6.x components
-find_package(VTK QUIET COMPONENTS vtkRenderingOpenGL vtkInteractionStyle vtkRenderingLOD vtkIOPLY vtkFiltersTexture vtkRenderingFreeType vtkIOExport NO_MODULE)
+if(NOT VTK_FOUND)
+  find_package(VTK QUIET COMPONENTS vtkRenderingOpenGL vtkInteractionStyle vtkRenderingLOD vtkIOPLY vtkFiltersTexture vtkRenderingFreeType vtkIOExport NO_MODULE)
+ENDIF()
 
 # VTK 5.x components
 if(NOT VTK_FOUND)
