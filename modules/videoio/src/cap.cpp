@@ -205,12 +205,14 @@ CV_IMPL CvCapture * cvCreateCameraCapture (int index)
         if (pref) break;
 #endif
 
+/*
 #if defined(HAVE_QUICKTIME) || defined(HAVE_QTKIT)
     case CV_CAP_QT:
         if (!capture)
             capture = cvCreateCameraCapture_QT(index);
         if (pref) break;
 #endif
+*/
 
 #ifdef HAVE_UNICAP
     case CV_CAP_UNICAP:
@@ -312,12 +314,14 @@ CV_IMPL CvCapture * cvCreateFileCaptureWithPreference (const char * filename, in
         if (apiPreference) break;
 #endif
 
+/*
 #if defined(HAVE_QUICKTIME) || defined(HAVE_QTKIT)
     case CV_CAP_QT:
         if (! result)
             result = cvCreateFileCapture_QT (filename);
         if (apiPreference) break;
 #endif
+*/
 
 #ifdef HAVE_AVFOUNDATION
     case CV_CAP_AVFOUNDATION:
@@ -385,10 +389,12 @@ CV_IMPL CvVideoWriter* cvCreateVideoWriter( const char* filename, int fourcc,
         result = cvCreateVideoWriter_AVFoundation(filename, fourcc, fps, frameSize, is_color);
 #endif
 
+/*
 #if defined(HAVE_QUICKTIME) || defined(HAVE_QTKIT)
     if(!result)
         result = cvCreateVideoWriter_QT(filename, fourcc, fps, frameSize, is_color);
 #endif
+*/
 
 #ifdef HAVE_GSTREAMER
     if (! result)
@@ -399,8 +405,6 @@ CV_IMPL CvVideoWriter* cvCreateVideoWriter( const char* filename, int fourcc,
     !defined(HAVE_VFW) && \
     !defined(HAVE_MSMF) && \
     !defined(HAVE_AVFOUNDATION) && \
-    !defined(HAVE_QUICKTIME) && \
-    !defined(HAVE_QTKIT) && \
     !defined(HAVE_GSTREAMER)
 // If none of the writers is used
 // these statements suppress 'unused parameter' warnings.
