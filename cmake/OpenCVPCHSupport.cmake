@@ -14,12 +14,7 @@
 
 IF(CMAKE_COMPILER_IS_GNUCXX)
 
-    EXEC_PROGRAM(
-        ${CMAKE_CXX_COMPILER}
-        ARGS ${CMAKE_CXX_COMPILER_ARG1} -dumpversion
-        OUTPUT_VARIABLE gcc_compiler_version)
-    #MESSAGE("GCC Version: ${gcc_compiler_version}")
-    IF(gcc_compiler_version VERSION_GREATER "4.2.-1")
+    IF(NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.2.0")
         SET(PCHSupport_FOUND TRUE)
     ENDIF()
 
@@ -290,6 +285,14 @@ MACRO(ADD_PRECOMPILED_HEADER _targetName _input)
       )
 
     ADD_PRECOMPILED_HEADER_TO_TARGET(${_targetName} ${_input}  ${_output} ${_dowarn})
+
+
+    GET_TARGET_PROPERTY(oldProps ${_targetName} COMPILE_FLAGS)
+    if (oldProps MATCHES NOTFOUND)
+        SET(oldProps "")
+    endif()
+    SET(newProperties "${oldProps} -include \"${CMAKE_CURRENT_BINARY_DIR}/${_name}\"")
+    SET_TARGET_PROPERTIES(${_targetName} PROPERTIES COMPILE_FLAGS "${newProperties}")
 
 ENDMACRO(ADD_PRECOMPILED_HEADER)
 

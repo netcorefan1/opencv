@@ -1,5 +1,5 @@
 set(the_description "High-level GUI and Media I/O")
-ocv_add_module(highgui opencv_imgproc opencv_imgcodecs opencv_videoio WRAP python)
+ocv_add_module(highgui opencv_imgproc OPTIONAL opencv_imgcodecs opencv_videoio WRAP python)
 
 # ----------------------------------------------------------------------------
 #  CMake file for highgui. See root CMakeLists.txt
@@ -7,7 +7,7 @@ ocv_add_module(highgui opencv_imgproc opencv_imgcodecs opencv_videoio WRAP pytho
 #   Jose Luis Blanco, 2008
 # ----------------------------------------------------------------------------
 
-if(WINRT_8_1 OR WINRT_10)
+if(DEFINED WINRT AND NOT DEFINED ENABLE_WINRT_MODE_NATIVE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /ZW")
 endif()
 
@@ -156,39 +156,6 @@ endmacro()
 
 if(NOT BUILD_opencv_world)
   ocv_highgui_configure_target()
-endif()
-
-if(WIN32 AND WITH_FFMPEG)
-  #copy ffmpeg dll to the output folder
-  if(MSVC64 OR MINGW64)
-    set(FFMPEG_SUFFIX _64)
-  endif()
-
-  set(ffmpeg_bare_name "opencv_ffmpeg${FFMPEG_SUFFIX}.dll")
-  set(ffmpeg_bare_name_ver "opencv_ffmpeg${OPENCV_DLLVERSION}${FFMPEG_SUFFIX}.dll")
-  set(ffmpeg_path "${OpenCV_SOURCE_DIR}/3rdparty/ffmpeg/${ffmpeg_bare_name}")
-
-  if(MSVC_IDE)
-    add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/Release/${ffmpeg_bare_name_ver}"
-                       COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/Debug/${ffmpeg_bare_name_ver}"
-                       COMMENT "Copying ${ffmpeg_path} to the output directory")
-  elseif(MSVC AND (CMAKE_GENERATOR MATCHES "Visual"))
-    add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/${ffmpeg_bare_name_ver}"
-                       COMMENT "Copying ${ffmpeg_path} to the output directory")
-  else()
-    add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/${ffmpeg_bare_name_ver}"
-                       COMMENT "Copying ${ffmpeg_path} to the output directory")
-  endif()
-
-  add_custom_command(TARGET ${the_module} POST_BUILD
-                     COMMAND ${CMAKE_COMMAND} -E copy "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
-                     COMMENT "Copying ${ffmpeg_path} to the output directory")
-
-  install(FILES "${ffmpeg_path}" DESTINATION bin${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER} COMPONENT main RENAME "${ffmpeg_bare_name_ver}")
-
 endif()
 
 ocv_add_accuracy_tests()

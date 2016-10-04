@@ -42,6 +42,7 @@
 
 #include "precomp.hpp"
 
+// GraphCut has been removed in NPP 8.0
 #if !defined (HAVE_CUDA) || defined (CUDA_DISABLER) || (CUDART_VERSION >= 8000)
 
 void cv::cuda::graphcut(GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, Stream&) { throw_no_cuda(); }
