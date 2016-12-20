@@ -50,10 +50,15 @@
 static const CvPoint icvCodeDeltas[8] =
     { CvPoint(1, 0), CvPoint(1, -1), CvPoint(0, -1), CvPoint(-1, -1), CvPoint(-1, 0), CvPoint(-1, 1), CvPoint(0, 1), CvPoint(1, 1) };
 
+#if CV_SSE2
+static
 inline unsigned int trailingZeros(unsigned int value) {
+    CV_DbgAssert(value != 0); // undefined for zero input (https://en.wikipedia.org/wiki/Find_first_set)
 #if defined(_MSC_VER)
-#if (_MSC_VER < 1500)
-    return _BitScanForward(value);
+#if (_MSC_VER < 1700)
+    unsigned long index = 0;
+    _BitScanForward(&index, value);
+    return (unsigned int)index;
 #else
     return _tzcnt_u32(value);
 #endif
@@ -70,6 +75,7 @@ inline unsigned int trailingZeros(unsigned int value) {
     return MultiplyDeBruijnBitPosition[((uint32_t)((value & -value) * 0x077CB531U)) >> 27];
 #endif
 }
+#endif
 
 CV_IMPL void
 cvStartReadChainPoints( CvChain * chain, CvChainPtReader * reader )
@@ -1898,7 +1904,7 @@ void cv::findContours( InputOutputArray _image, OutputArrayOfArrays _contours,
     CV_Assert(_contours.empty() || (_contours.channels() == 2 && _contours.depth() == CV_32S));
 
     Mat image;
-    copyMakeBorder(_image, image, 1, 1, 1, 1, BORDER_CONSTANT, Scalar(0));
+    copyMakeBorder(_image, image, 1, 1, 1, 1, BORDER_CONSTANT | BORDER_ISOLATED, Scalar(0));
     MemStorage storage(cvCreateMemStorage());
     CvMat _cimage = image;
     CvSeq* _ccontours = 0;
