@@ -83,11 +83,22 @@ static NSMutableDictionary *windows = nil;
 static bool wasInitialized = false;
 
 @interface CVView : NSView
+{
+NSImage *image;
+}
 @property(strong) NSImage *image;
 - (void)setImageData:(CvArr *)arr;
 @end
 
 @interface CVSlider : NSView
+{
+NSSlider *slider;
+NSTextField *name;
+int *value;
+void *userData;
+CvTrackbarCallback callback;
+CvTrackbarCallback2 callback2;
+}
 @property(strong) NSSlider *slider;
 @property(strong) NSTextField *name;
 @property(assign) int *value;
@@ -97,6 +108,14 @@ static bool wasInitialized = false;
 @end
 
 @interface CVWindow : NSWindow
+{
+CvMouseCallback mouseCallback;
+void *mouseParam;
+BOOL autosize;
+BOOL firstContent;
+NSMutableDictionary *sliders;
+int status;
+}
 @property(assign) CvMouseCallback mouseCallback;
 @property(assign) void *mouseParam;
 @property(assign) BOOL autosize;
