@@ -4023,7 +4023,7 @@ public:
                         sum = bufSum32[1];
                         wsum = bufSum32[0];
                     }
-                    #elif CV_NEON
+                    #elif CV_NEON && (! defined(WINAPI_FAMILY) ) 
                     if( haveNEON )
                     {
                         float32x2_t psum = vdup_n_f32(0.0f);
