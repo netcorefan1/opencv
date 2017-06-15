@@ -266,15 +266,15 @@ if(WIN32 AND WITH_FFMPEG)
 
   if(MSVC_IDE)
     add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_BINARY_DIR}/bin${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_BINARY_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
                        COMMENT "Copying ${ffmpeg_path} to the output directory")
   elseif(MSVC AND (CMAKE_GENERATOR MATCHES "Visual"))
     add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_BINARY_DIR}/bin${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_BINARY_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
                        COMMENT "Copying ${ffmpeg_path} to the output directory")
   else()
     add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_BINARY_DIR}/bin${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_BINARY_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
                        COMMENT "Copying ${ffmpeg_path} to the output directory")
   endif()
 
