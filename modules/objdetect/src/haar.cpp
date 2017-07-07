@@ -340,8 +340,8 @@ icvCreateHidHaarClassifierCascade( CvHaarClassifierCascade* cascade )
             out->isStumpBased &= node_count == 1;
         }
     }
-/*
-#ifdef HAVE_IPP
+
+#if defined HAVE_IPP && !IPP_DISABLE_HAAR
     int can_use_ipp = CV_IPP_CHECK_COND && (!out->has_tilted_features && !out->is_tree && out->isStumpBased);
 
     if( can_use_ipp )
@@ -396,7 +396,7 @@ icvCreateHidHaarClassifierCascade( CvHaarClassifierCascade* cascade )
         }
     }
 #endif
-*/
+
     cascade->hid_cascade = out;
     assert( (char*)haar_node_ptr - (char*)out <= datasize );
 
@@ -824,10 +824,7 @@ cvRunHaarClassifierCascadeSum( const CvHaarClassifierCascade* _cascade,
                                CvPoint pt, double& stage_sum, int start_stage )
 {
 #ifdef CV_HAAR_USE_AVX
-    bool haveAVX = false;
-    if(cv::checkHardwareSupport(CV_CPU_AVX))
-    if(__xgetbv()&0x6)// Check if the OS will save the YMM registers
-       haveAVX = true;
+    bool haveAVX = cv::checkHardwareSupport(CV_CPU_AVX);
 #else
 #  ifdef CV_HAAR_USE_SSE
     bool haveSSE2 = cv::checkHardwareSupport(CV_CPU_SSE2);
@@ -1851,7 +1848,7 @@ icvLoadCascadeCART( const char** input_cascade, int n, CvSize orig_window_size )
         sscanf( stage, "%d%n", &count, &dl );
         stage += dl;
 
-        assert( count > 0 );
+        CV_Assert( count > 0 && count < CV_HAAR_STAGE_MAX);
         cascade->stage_classifier[i].count = count;
         cascade->stage_classifier[i].classifier =
             (CvHaarClassifier*)cvAlloc( count*sizeof(cascade->stage_classifier[i].classifier[0]));
@@ -1865,6 +1862,7 @@ icvLoadCascadeCART( const char** input_cascade, int n, CvSize orig_window_size )
             sscanf( stage, "%d%n", &classifier->count, &dl );
             stage += dl;
 
+            CV_Assert( classifier->count > 0 && classifier->count< CV_HAAR_STAGE_MAX);
             classifier->haar_feature = (CvHaarFeature*) cvAlloc(
                 classifier->count * ( sizeof( *classifier->haar_feature ) +
                                       sizeof( *classifier->threshold ) +
@@ -1881,7 +1879,7 @@ icvLoadCascadeCART( const char** input_cascade, int n, CvSize orig_window_size )
                 sscanf( stage, "%d%n", &rects, &dl );
                 stage += dl;
 
-                assert( rects >= 2 && rects <= CV_HAAR_FEATURE_MAX );
+                CV_Assert( rects >= 2 && rects <= CV_HAAR_FEATURE_MAX );
 
                 for( k = 0; k < rects; k++ )
                 {
@@ -1893,7 +1891,7 @@ icvLoadCascadeCART( const char** input_cascade, int n, CvSize orig_window_size )
                     stage += dl;
                     classifier->haar_feature[l].rect[k].r = r;
                 }
-                sscanf( stage, "%s%n", str, &dl );
+                sscanf( stage, "%99s%n", str, &dl );
                 stage += dl;
 
                 classifier->haar_feature[l].tilted = strncmp( str, "tilted", 6 ) == 0;
@@ -1929,6 +1927,7 @@ icvLoadCascadeCART( const char** input_cascade, int n, CvSize orig_window_size )
         }
         stage += dl;
 
+        CV_Assert(parent >= 0 && parent < i);
         cascade->stage_classifier[i].parent = parent;
         cascade->stage_classifier[i].next = next;
         cascade->stage_classifier[i].child = -1;

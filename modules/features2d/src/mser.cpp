@@ -25,7 +25,7 @@
  * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
  * OF SUCH DAMAGE.
- * Copyright© 2009, Liu Liu All rights reserved.
+ * Copyright (C) 2009, Liu Liu All rights reserved.
  *
  * OpenCV functions for MSER extraction
  *
@@ -335,6 +335,8 @@ public:
             head = comp1->head;
             tail = comp2->tail;
             size = comp1->size + comp2->size;
+            // update the history size
+            history->size =size;
 
             CompHistory *h1 = history->child_;
             CompHistory *h2 = comp2->history;

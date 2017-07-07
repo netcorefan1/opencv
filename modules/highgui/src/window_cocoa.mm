@@ -82,32 +82,37 @@ static NSAutoreleasePool *pool = nil;
 static NSMutableDictionary *windows = nil;
 static bool wasInitialized = false;
 
-@interface CVView : NSView
-{
-NSImage *image;
+@interface CVView : NSView {
+    NSImage *image;
 }
-@property(strong) NSImage *image;
+@property(retain) NSImage *image;
 - (void)setImageData:(CvArr *)arr;
 @end
 
-@interface CVSlider : NSView
-{
-NSSlider *slider;
-NSTextField *name;
-int *value;
-void *userData;
-CvTrackbarCallback callback;
-CvTrackbarCallback2 callback2;
+@interface CVSlider : NSView {
+    NSSlider *slider;
+    NSTextField *name;
+    int *value;
+    void *userData;
+    CvTrackbarCallback callback;
+    CvTrackbarCallback2 callback2;
 }
-@property(strong) NSSlider *slider;
-@property(strong) NSTextField *name;
+@property(retain) NSSlider *slider;
+@property(retain) NSTextField *name;
 @property(assign) int *value;
 @property(assign) void *userData;
 @property(assign) CvTrackbarCallback callback;
 @property(assign) CvTrackbarCallback2 callback2;
 @end
 
-@interface CVWindow : NSWindow
+@interface CVWindow : NSWindow {
+    NSMutableDictionary *sliders;
+    CvMouseCallback mouseCallback;
+    void *mouseParam;
+    BOOL autosize;
+    BOOL firstContent;
+    int status;
+}
 {
 CvMouseCallback mouseCallback;
 void *mouseParam;
@@ -120,7 +125,7 @@ int status;
 @property(assign) void *mouseParam;
 @property(assign) BOOL autosize;
 @property(assign) BOOL firstContent;
-@property(strong) NSMutableDictionary *sliders;
+@property(retain) NSMutableDictionary *sliders;
 @property(readwrite) int status;
 - (CVView *)contentView;
 - (void)cvSendMouseEvent:(NSEvent *)event type:(int)type flags:(int)flags;

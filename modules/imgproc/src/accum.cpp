@@ -1942,9 +1942,14 @@ enum
     VX_ACCUMULATE_WEIGHTED_OP = 2
 };
 
+namespace ovx {
+    template <> inline bool skipSmallImages<VX_KERNEL_ACCUMULATE>(int w, int h) { return w*h < 120 * 60; }
+}
 static bool openvx_accumulate(InputArray _src, InputOutputArray _dst, InputArray _mask, double _weight, int opType)
 {
     Mat srcMat = _src.getMat(), dstMat = _dst.getMat();
+    if (ovx::skipSmallImages<VX_KERNEL_ACCUMULATE>(srcMat.cols, srcMat.rows))
+        return false;
     if(!_mask.empty() ||
        (opType == VX_ACCUMULATE_WEIGHTED_OP && dstMat.type() != CV_8UC1  ) ||
        (opType != VX_ACCUMULATE_WEIGHTED_OP && dstMat.type() != CV_16SC1 ) ||
@@ -1958,7 +1963,7 @@ static bool openvx_accumulate(InputArray _src, InputOutputArray _dst, InputArray
 
     try
     {
-        ivx::Context context = ivx::Context::create();
+        ivx::Context context = ovx::getOpenVXContext();
         ivx::Image srcImage = ivx::Image::createFromHandle(context, ivx::Image::matTypeToFormat(srcMat.type()),
                                                            ivx::Image::createAddressing(srcMat), srcMat.data);
         ivx::Image dstImage = ivx::Image::createFromHandle(context, ivx::Image::matTypeToFormat(dstMat.type()),

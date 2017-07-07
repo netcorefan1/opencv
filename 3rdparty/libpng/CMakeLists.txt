@@ -32,8 +32,9 @@ if (APPLE)
 elseif(ENABLE_NEON)
   list(APPEND lib_srcs arm/arm_init.c arm/filter_neon.S arm/filter_neon_intrinsics.c)
   add_definitions(-DPNG_ARM_NEON_OPT=2)
-elseif(AARCH64)
+  else()
   add_definitions(-DPNG_ARM_NEON_OPT=0) # NEON assembler is not supported
+endif()
 endif()
 
 if(ENABLE_SSE
