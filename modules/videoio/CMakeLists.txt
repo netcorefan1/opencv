@@ -280,16 +280,16 @@ if(WIN32 AND HAVE_FFMPEG)
 
   if(MSVC_IDE)
     add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_BINARY_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
-                       COMMENT "Copying ${ffmpeg_path} to the output directory")
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
+                       COMMENT "Copying ${ffmpeg_path} to the output directory: ${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver} ")
   elseif(MSVC AND (CMAKE_GENERATOR MATCHES "Visual"))
     add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_BINARY_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
-                       COMMENT "Copying ${ffmpeg_path} to the output directory")
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
+                       COMMENT "Copying ${ffmpeg_path} to the output directory: ${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}")
   else()
     add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_BINARY_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
-                       COMMENT "Copying ${ffmpeg_path} to the output directory")
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
+                       COMMENT "Copying ${ffmpeg_path} to the output directory: ${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}")
   endif()
 
   install(FILES "${ffmpeg_path}" DESTINATION ${OPENCV_BIN_INSTALL_PATH} COMPONENT libs RENAME "${ffmpeg_bare_name_ver}")
