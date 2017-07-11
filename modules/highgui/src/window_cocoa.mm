@@ -113,14 +113,6 @@ static bool wasInitialized = false;
     BOOL firstContent;
     int status;
 }
-{
-CvMouseCallback mouseCallback;
-void *mouseParam;
-BOOL autosize;
-BOOL firstContent;
-NSMutableDictionary *sliders;
-int status;
-}
 @property(assign) CvMouseCallback mouseCallback;
 @property(assign) void *mouseParam;
 @property(assign) BOOL autosize;
