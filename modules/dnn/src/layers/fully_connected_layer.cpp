@@ -119,7 +119,7 @@ public:
     class FullyConnected : public ParallelLoopBody
     {
     public:
-        FullyConnected() : srcMat(0), weights(0), biasMat(0), activ(0), dstMat(0), nstripes(0), useAVX2(false) {}
+        FullyConnected() : srcMat(0), weights(0), biasMat(0), activ(0), dstMat(0), nstripes(0), useAVX(false), useAVX2(false) {}
 
         static void run(const Mat& srcMat, const Mat& weights, const Mat& biasMat,
                         Mat& dstMat, const ActivationLayer* activ, int nstripes)
@@ -139,6 +139,7 @@ public:
             p.dstMat = &dstMat;
             p.nstripes = nstripes;
             p.activ = activ;
+            p.useAVX = checkHardwareSupport(CPU_AVX);
             p.useAVX2 = checkHardwareSupport(CPU_AVX2);
 
             parallel_for_(Range(0, nstripes), p, nstripes);
@@ -176,7 +177,12 @@ public:
 
             #if CV_TRY_AVX2
                 if( useAVX2 )
-                    fastGEMM1T_avx2( sptr, wptr, wstep, biasptr, dptr, nw, vecsize);
+                    opt_AVX2::fastGEMM1T( sptr, wptr, wstep, biasptr, dptr, nw, vecsize);
+                else
+            #endif
+            #if CV_TRY_AVX
+                if( useAVX )
+                    opt_AVX::fastGEMM1T( sptr, wptr, wstep, biasptr, dptr, nw, vecsize);
                 else
             #endif
                 {
@@ -185,19 +191,19 @@ public:
             #if CV_SIMD128
                     for( ; i <= nw - 4; i += 4, wptr += 4*wstep )
                     {
-                        vfloat32x4 vs0 = v_setall_f32(0.f), vs1 = v_setall_f32(0.f);
-                        vfloat32x4 vs2 = v_setall_f32(0.f), vs3 = v_setall_f32(0.f);
+                        v_float32x4 vs0 = v_setall_f32(0.f), vs1 = v_setall_f32(0.f);
+                        v_float32x4 vs2 = v_setall_f32(0.f), vs3 = v_setall_f32(0.f);
 
                         for( k = 0; k < vecsize; k += 4 )
                         {
-                            vfloat32x4 v = v_load_aligned(sptr + k);
+                            v_float32x4 v = v_load_aligned(sptr + k);
                             vs0 += v*v_load_aligned(wptr + k);
                             vs1 += v*v_load_aligned(wptr + wstep + k);
                             vs2 += v*v_load_aligned(wptr + wstep*2 + k);
                             vs3 += v*v_load_aligned(wptr + wstep*3 + k);
                         }
 
-                        vfloat32x4 s = v_reduce_sum4(vs0, vs1, vs2, vs3);
+                        v_float32x4 s = v_reduce_sum4(vs0, vs1, vs2, vs3);
                         s += v_load(biasptr + i);
                         v_store(dptr + i, s);
                     }
@@ -228,6 +234,7 @@ public:
         const ActivationLayer* activ;
         Mat* dstMat;
         int nstripes;
+        bool useAVX;
         bool useAVX2;
     };
 

@@ -517,7 +517,8 @@ TEST_P(Concat, Accuracy)
 
     Net net;
 
-    std::vector<int> convLayerIds(numChannels.channels);
+    std::vector<int> convLayerIds;
+    convLayerIds.reserve(numChannels.channels);
     for (int i = 0, n = numChannels.channels; i < n; ++i)
     {
         if (!numChannels[i])
@@ -537,8 +538,9 @@ TEST_P(Concat, Accuracy)
         convParam.name = ss.str();
         convParam.blobs.push_back(weights);
 
-        convLayerIds[i] = net.addLayer(convParam.name, convParam.type, convParam);
-        net.connect(0, 0, convLayerIds[i], 0);
+        int layerId = net.addLayer(convParam.name, convParam.type, convParam);
+        convLayerIds.push_back(layerId);
+        net.connect(0, 0, layerId, 0);
     }
 
     LayerParams concatParam;
@@ -575,12 +577,13 @@ INSTANTIATE_TEST_CASE_P(Layer_Test_Halide, Concat, Combine(
 //      `--- conv ----^ ^ ^
 //      `---- ... ------' '
 //      `-----------------'
-typedef TestWithParam<tuple<Vec3i, std::string, int> > Eltwise;
+typedef TestWithParam<tuple<Vec3i, std::string, int, bool> > Eltwise;
 TEST_P(Eltwise, Accuracy)
 {
     Vec3i inSize = get<0>(GetParam());
     std::string op = get<1>(GetParam());
     int numConv = get<2>(GetParam());
+    bool weighted = get<3>(GetParam());
 
     Net net;
 
@@ -606,6 +609,17 @@ TEST_P(Eltwise, Accuracy)
     }
 
     LayerParams eltwiseParam;
+    eltwiseParam.set("operation", op);
+    if (op == "sum" && weighted)
+    {
+        RNG rng = cv::theRNG();
+        std::vector<float> coeff(1 + numConv);
+        for (int i = 0; i < coeff.size(); ++i)
+        {
+            coeff[i] = rng.uniform(-2.0f, 2.0f);
+        }
+        eltwiseParam.set("coeff", DictValue::arrayReal<float*>(&coeff[0], coeff.size()));
+    }
     eltwiseParam.type = "Eltwise";
     eltwiseParam.name = "testLayer";
     int eltwiseId = net.addLayer(eltwiseParam.name, eltwiseParam.type, eltwiseParam);
@@ -629,7 +643,8 @@ TEST_P(Eltwise, Accuracy)
 INSTANTIATE_TEST_CASE_P(Layer_Test_Halide, Eltwise, Combine(
 /*input size*/ Values(Vec3i(1, 4, 5), Vec3i(2, 8, 6)),
 /*operation*/  Values("prod", "sum", "max"),
-/*num convs*/  Values(1, 2, 3)
+/*num convs*/  Values(1, 2, 3),
+/*weighted(for sum only)*/ Bool()
 ));
 #endif  // HAVE_HALIDE
 

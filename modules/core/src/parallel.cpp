@@ -44,7 +44,7 @@
 
 #include <opencv2/core/utils/trace.private.hpp>
 
-#if defined WIN32 || defined WINCE
+#if defined _WIN32 || defined WINCE
     #include <windows.h>
     #undef small
     #undef min
@@ -56,7 +56,7 @@
     #include <unistd.h>
     #include <stdio.h>
     #include <sys/types.h>
-    #if defined ANDROID
+    #if defined __ANDROID__
         #include <sys/sysconf.h>
     #elif defined __APPLE__
         #include <sys/sysctl.h>
@@ -590,7 +590,7 @@ int cv::getThreadNum(void)
 #endif
 }
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 static inline int getNumberOfCPUsImpl()
 {
    FILE* cpuPossible = fopen("/sys/devices/system/cpu/possible", "r");
@@ -633,7 +633,7 @@ static inline int getNumberOfCPUsImpl()
 int cv::getNumberOfCPUs(void)
 {
    //TODO: implement getNumberOfCPUs for Windows Store App Style C++ code
-#if (defined WIN32 || defined _WIN32) && !((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
+#if defined _WIN32 && !((defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP)
     SYSTEM_INFO sysinfo;
 #if (defined(_M_ARM) || defined(_M_X64) || defined(WINRT)) && _WIN32_WINNT >= 0x501
     GetNativeSystemInfo( &sysinfo );
@@ -642,7 +642,7 @@ int cv::getNumberOfCPUs(void)
 #endif
 
     return (int)sysinfo.dwNumberOfProcessors;
-#elif defined ANDROID
+#elif defined __ANDROID__
     static int ncpus = getNumberOfCPUsImpl();
     return ncpus;
 #elif defined __linux__

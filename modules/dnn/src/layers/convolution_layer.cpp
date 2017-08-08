@@ -148,6 +148,7 @@ public:
     std::vector<float> reluslope;
     Ptr<ActivationLayer> activ;
     Ptr<BatchNormLayer> bnorm;
+    Ptr<ScaleLayer> scaleLayer;
 
     MatShape computeColRowShape(const MatShape &inpShape, const MatShape &outShape) const
     {
@@ -182,7 +183,7 @@ public:
         }
         else
         {
-            getConvPoolOutParams(Size(inpH, inpW), kernel, stride, padMode, out);
+            getConvPoolOutParams(Size(inpW, inpH), kernel, stride, padMode, out);
         }
 
         int ngroups = inpCn / blobs[0].size[1];
@@ -197,16 +198,30 @@ public:
     bool setActivation(const Ptr<ActivationLayer>& layer)
     {
         activ = layer;
+        if (activ.empty())
+            reluslope.clear();
         return !activ.empty();
     }
 
     bool setBatchNorm(const Ptr<BatchNormLayer>& layer )
     {
+        // for now the scale layer followed by the batch norm cannot be fused, only vice versa.
+        if( !scaleLayer.empty() )
+            return false;
         bnorm = layer;
         // we will need to re-compute the weights with the batch
         // norm coefficients taken into account
         weightsMat.release();
         return !bnorm.empty();
+    }
+
+    bool setScale(const Ptr<ScaleLayer>& layer)
+    {
+        scaleLayer = layer;
+        // we will need to re-compute the weights with the scaling
+        // coefficients taken into account
+        weightsMat.release();
+        return !scaleLayer.empty();
     }
 
     virtual Ptr<BackendNode> initHalide(const std::vector<Ptr<BackendWrapper> > &inputs)
@@ -285,11 +300,12 @@ public:
         const std::vector<float>* reluslope_;
         const ActivationLayer* activ_;
         bool is1x1_;
+        bool useAVX;
         bool useAVX2;
 
         ParallelConv()
             : input_(0), weights_(0), output_(0), ngroups_(0), nstripes_(0),
-              biasvec_(0), reluslope_(0), activ_(0), is1x1_(false), useAVX2(false)
+              biasvec_(0), reluslope_(0), activ_(0), is1x1_(false), useAVX(false), useAVX2(false)
         {}
 
         static void run( const Mat& input, Mat& output, const Mat& weights,
@@ -322,6 +338,7 @@ public:
             int inpCnAll = input.size[1], width = input.size[3], height = input.size[2];
             int inpCn = inpCnAll / ngroups;
             p.is1x1_ = kernel == Size(0,0) && pad == Size(0, 0);
+            p.useAVX = checkHardwareSupport(CPU_AVX);
             p.useAVX2 = checkHardwareSupport(CPU_AVX2);
 
             int ncn = std::min(inpCn, (int)BLK_SIZE_CN);
@@ -504,8 +521,14 @@ public:
                         int bsz = ofs1 - ofs0;
                     #if CV_TRY_AVX2
                         if(useAVX2)
-                            fastConv_avx2(wptr, wstep, biasptr, rowbuf0, data_out0 + ofs0,
+                            opt_AVX2::fastConv(wptr, wstep, biasptr, rowbuf0, data_out0 + ofs0,
                                           outShape, bsz, vsz, vsz_a, relu, cn0 == 0);
+                        else
+                    #endif
+                    #if CV_TRY_AVX
+                        if(useAVX)
+                            opt_AVX::fastConv(wptr, wstep, biasptr, rowbuf0, data_out0 + ofs0,
+                                         outShape, bsz, vsz, vsz_a, relu, cn0 == 0);
                         else
                     #endif
                         for( int i = 0; i < outCn; i += 2 )
@@ -670,32 +693,56 @@ public:
                     biasvec[k] = biasMat.at<float>(k);
             }
 
-            if( !bnorm.empty() )
+            if( !bnorm.empty() || !scaleLayer.empty() )
             {
-                Mat scale, shift;
-                bnorm->getScaleShift(scale, shift);
+                Mat scale, shift, scale2, shift2;
+                const float *scaleptr = 0, *shiftptr = 0;
+                const float *scaleptr2 = 0, *shiftptr2 = 0;
 
-                CV_Assert( scale.isContinuous() && shift.isContinuous() &&
-                           scale.type() == CV_32F && shift.type() == CV_32F &&
-                           scale.total() == (size_t)outCn &&
-                           shift.total() == (size_t)outCn );
+                if( !bnorm.empty() )
+                {
+                    bnorm->getScaleShift(scale, shift);
+                    CV_Assert( scale.isContinuous() && shift.isContinuous() &&
+                               scale.type() == CV_32F && shift.type() == CV_32F &&
+                               scale.total() == (size_t)outCn &&
+                               shift.total() == (size_t)outCn );
+                    scaleptr = scale.ptr<float>();
+                    shiftptr = shift.ptr<float>();
+                }
+                if( !scaleLayer.empty() )
+                {
+                    scale2 = scaleLayer->blobs[0];
+                    CV_Assert( scale2.isContinuous() && scale2.type() == CV_32F &&
+                               scale2.total() == (size_t)outCn );
+                    scaleptr2 = scale2.ptr<float>();
+                    if( scaleLayer->hasBias )
+                    {
+                        shift2 = scaleLayer->blobs[1];
+                        CV_Assert( shift2.isContinuous() && shift2.type() == CV_32F &&
+                                   shift2.total() == (size_t)outCn );
+                        shiftptr2 = shift2.ptr<float>();
+                    }
+                }
 
                 for( int i = 0; i < outCn; i++ )
                 {
-                    float s = scale.at<float>(i);
-                    float delta = shift.at<float>(i);
+                    float s1 = scaleptr ? scaleptr[i] : 1.f;
+                    float delta1 = shiftptr ? shiftptr[i] : 0.f;
+                    float s2 = scaleptr2 ? scaleptr2[i] : 1.f;
+                    float delta2 = shiftptr2 ? shiftptr2[i] : 0.f;
                     float* w_i = weightsMat.ptr<float>(i);
                     int j, wcols = weightsMat.cols;
 
                     for( j = 0; j < wcols; j++ )
-                        w_i[j] *= s;
+                        w_i[j] *= (s1*s2);
 
-                    biasvec[i] = biasvec[i]*s + delta;
+                    biasvec[i] = biasvec[i]*(s1*s2) + (delta1*s2 + delta2);
                 }
             }
             biasvec[outCn] = biasvec[outCn+1] = biasvec[outCn-1];
         }
 
+        reluslope.clear();
         if( activ )
         {
             Ptr<ReLULayer> activ_relu = activ.dynamicCast<ReLULayer>();
@@ -795,6 +842,7 @@ public:
             b_ = &b;
             c_ = &c;
             nstripes_ = nstripes;
+            useAVX = checkHardwareSupport(CPU_AVX);
             useAVX2 = checkHardwareSupport(CPU_AVX2);
         }
 
@@ -815,7 +863,12 @@ public:
 
         #if CV_TRY_AVX2
             if( useAVX2 )
-                fastGEMM_avx2( aptr, astep, bptr, bstep, cptr, cstep, mmax, kmax, nmax );
+                opt_AVX2::fastGEMM( aptr, astep, bptr, bstep, cptr, cstep, mmax, kmax, nmax );
+            else
+        #endif
+        #if CV_TRY_AVX
+            if( useAVX )
+                opt_AVX::fastGEMM( aptr, astep, bptr, bstep, cptr, cstep, mmax, kmax, nmax );
             else
         #endif
             for( m = 0; m < mmax; m += 2 )
@@ -910,6 +963,7 @@ public:
         const Mat *a_, *b_;
         Mat* c_;
         int nstripes_;
+        bool useAVX;
         bool useAVX2;
     };
 
