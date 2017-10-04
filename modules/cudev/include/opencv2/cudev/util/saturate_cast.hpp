@@ -47,6 +47,9 @@
 #define OPENCV_CUDEV_UTIL_SATURATE_CAST_HPP
 
 #include "../common.hpp"
+#if __CUDACC_VER_MAJOR__ >= 9
+#include <cuda_fp16.h>
+#endif
 
 namespace cv { namespace cudev {
 
