@@ -257,7 +257,8 @@ struct CoreTLSData
 //#ifdef HAVE_OPENCL
         device(0), useOpenCL(-1),
 //#endif
-        useIPP(-1)
+        useIPP(-1),
+        useIPP_NE(-1)
 #ifdef HAVE_TEGRA_OPTIMIZATION
         ,useTegra(-1)
 #endif
@@ -273,6 +274,7 @@ struct CoreTLSData
     int useOpenCL; // 1 - use, 0 - do not use, -1 - auto/not initialized
 //#endif
     int useIPP; // 1 - use, 0 - do not use, -1 - auto/not initialized
+    int useIPP_NE; // 1 - use, 0 - do not use, -1 - auto/not initialized
 #ifdef HAVE_TEGRA_OPTIMIZATION
     int useTegra; // 1 - use, 0 - do not use, -1 - auto/not initialized
 #endif
@@ -295,19 +297,11 @@ TLSData<CoreTLSData>& getCoreTlsData();
 #define CL_RUNTIME_EXPORT
 #endif
 
-
 namespace ocl
 {
     MatAllocator* getOpenCLAllocator();
     MatAllocator* getOpenCLAllocator(MatAllocator* matAllocator);
 }
-
-namespace utils {
-bool getConfigurationParameterBool(const char* name, bool defaultValue);
-size_t getConfigurationParameterSizeT(const char* name, size_t defaultValue);
-cv::String getConfigurationParameterString(const char* name, const char* defaultValue);
-}
-
 extern bool __termination; // skip some cleanups, because process is terminating
                            // (for example, if ExitProcess() was already called)
 

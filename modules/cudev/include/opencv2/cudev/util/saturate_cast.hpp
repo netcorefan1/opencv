@@ -277,12 +277,21 @@ template <typename T, typename D> __device__ __forceinline__ D cast_fp16(T v);
 
 template <> __device__ __forceinline__ float cast_fp16<short, float>(short v)
 {
+#if __CUDACC_VER_MAJOR__ >= 9
+  return float(*(__half*)&v);
+#else
     return __half2float(v);
+#endif
 }
 
 template <> __device__ __forceinline__ short cast_fp16<float, short>(float v)
 {
-    return (short)__float2half_rn(v);
+#if __CUDACC_VER_MAJOR__ >= 9
+  __half h(v);
+  return *(short*)&v;
+#else
+  return (short)__float2half_rn(v);
+#endif
 }
 //! @}
 
