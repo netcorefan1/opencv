@@ -3581,7 +3581,6 @@ public:
                         sum += bufFloat[1];
                         wsum += bufFloat[0];
                     }
-                    #elif CV_NEON && (! defined(WINAPI_FAMILY) ) 
                     #endif
 
                     for( ; k < maxk; k++ )
