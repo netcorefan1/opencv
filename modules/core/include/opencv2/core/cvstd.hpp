@@ -389,6 +389,8 @@ struct Ptr
     template<typename Y>
     Ptr<Y> dynamicCast() const;
 
+    void addref();
+
 #ifdef CV_CXX_MOVE_SEMANTICS
     Ptr(Ptr&& o);
     Ptr& operator = (Ptr&& o);
