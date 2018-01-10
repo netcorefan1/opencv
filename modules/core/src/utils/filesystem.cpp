@@ -21,6 +21,50 @@
 #endif
 
 
+namespace cv {
+	namespace utils {
+		namespace fs {
+
+#ifdef _WIN32
+			static const char native_separator = '\\';
+#else
+			static const char native_separator = '/';
+#endif
+
+			static inline
+				bool isPathSeparator(char c)
+			{
+				return c == '/' || c == '\\';
+			}
+
+			cv::String join(const cv::String& base, const cv::String& path)
+			{
+				if (base.empty())
+					return path;
+				if (path.empty())
+					return base;
+
+				bool baseSep = isPathSeparator(base[base.size() - 1]);
+				bool pathSep = isPathSeparator(path[0]);
+				String result;
+				if (baseSep && pathSep)
+				{
+					result = base + path.substr(1);
+				}
+				else if (!baseSep && !pathSep)
+				{
+					result = base + native_separator + path;
+				}
+				else
+				{
+					result = base + path;
+				}
+				return result;
+			}
+		}
+	}
+}
+
 #if OPENCV_HAVE_FILESYSTEM_SUPPORT
 
 #ifdef _WIN32
@@ -42,43 +86,6 @@
 #endif
 
 namespace cv { namespace utils { namespace fs {
-
-#ifdef _WIN32
-static const char native_separator = '\\';
-#else
-static const char native_separator = '/';
-#endif
-
-static inline
-bool isPathSeparator(char c)
-{
-    return c == '/' || c == '\\';
-}
-
-cv::String join(const cv::String& base, const cv::String& path)
-{
-    if (base.empty())
-        return path;
-    if (path.empty())
-        return base;
-
-    bool baseSep = isPathSeparator(base[base.size() - 1]);
-    bool pathSep = isPathSeparator(path[0]);
-    String result;
-    if (baseSep && pathSep)
-    {
-        result = base + path.substr(1);
-    }
-    else if (!baseSep && !pathSep)
-    {
-        result = base + native_separator + path;
-    }
-    else
-    {
-        result = base + path;
-    }
-    return result;
-}
 
 bool exists(const cv::String& path)
 {
