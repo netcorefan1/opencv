@@ -190,10 +190,11 @@ bool createDirectory(const cv::String& path)
     CV_INSTRUMENT_REGION()
 #if defined WIN32 || defined _WIN32 || defined WINCE
 #ifdef WINRT
-    wchar_t wpath[MAX_PATH];
-    size_t copied = mbstowcs(wpath, path.c_str(), MAX_PATH);
-    CV_Assert((copied != MAX_PATH) && (copied != (size_t)-1));
-    int result = CreateDirectoryA(wpath, NULL) ? 0 : -1;
+	int result = CreateDirectoryA(path.c_str(), NULL) ? 0 : -1;
+	//wchar_t wpath[MAX_PATH];
+	//size_t copied = mbstowcs(wpath, path.c_str(), MAX_PATH);
+	//CV_Assert((copied != MAX_PATH) && (copied != (size_t)-1));
+	//int result = CreateDirectoryA(wpath, NULL) ? 0 : -1;
 #else
     int result = _mkdir(path.c_str());
 #endif
@@ -251,6 +252,9 @@ struct FileLock::Impl
 {
     Impl(const char* fname)
     {
+#if defined(WINAPI)
+		CV_ErrorNoReturn_(Error::StsAssert, ("Opening lock file %s is not implemented on WINAPI", fname));
+#else
         // http://support.microsoft.com/kb/316609
         int numRetries = 5;
         do
@@ -272,6 +276,7 @@ struct FileLock::Impl
             }
             break;
         } while (numRetries > 0);
+#endif
     }
     ~Impl()
     {
@@ -408,7 +413,14 @@ cv::String getCacheDirectory(const char* sub_directory_name, const char* configu
         cv::String default_cache_path;
 #ifdef _WIN32
         char tmp_path_buf[MAX_PATH+1] = {0};
+#ifdef WINAPI
+		wchar_t wtext[MAX_PATH+1];
+		mbstowcs(wtext, tmp_path_buf, strlen(tmp_path_buf) + 1);//Plus null
+		LPWSTR wtmp_path_buf = wtext;
+		DWORD res = GetTempPath(MAX_PATH, wtmp_path_buf);
+#else
         DWORD res = GetTempPath(MAX_PATH, tmp_path_buf);
+#endif
         if (res > 0 && res <= MAX_PATH)
         {
             default_cache_path = tmp_path_buf;
