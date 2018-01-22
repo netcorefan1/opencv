@@ -414,10 +414,11 @@ cv::String getCacheDirectory(const char* sub_directory_name, const char* configu
 #ifdef _WIN32
         char tmp_path_buf[MAX_PATH+1] = {0};
 #ifdef WINAPI
-		wchar_t wtext[MAX_PATH+1];
-		mbstowcs(wtext, tmp_path_buf, strlen(tmp_path_buf) + 1);//Plus null
-		LPWSTR wtmp_path_buf = wtext;
-		DWORD res = GetTempPath(MAX_PATH, wtmp_path_buf);
+		//wchar_t wtext[MAX_PATH+1];
+		//mbstowcs(wtext, tmp_path_buf, strlen(tmp_path_buf) + 1);//Plus null
+		//LPWSTR wtmp_path_buf = wtext;
+		//DWORD res = GetTempPath(MAX_PATH, wtmp_path_buf);
+		DWORD res = 0;
 #else
         DWORD res = GetTempPath(MAX_PATH, tmp_path_buf);
 #endif
