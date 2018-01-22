@@ -4,8 +4,11 @@
 #include "wrl.h"
 #endif
 #else
+#if CV_ICC
+const IID IID_ICustomStreamSink;
+#else
 EXTERN_C const IID IID_ICustomStreamSink;
-
+#endif
 class DECLSPEC_UUID("4F8A1939-2FD3-46DB-AE70-DB7E0DD79B73") DECLSPEC_NOVTABLE ICustomStreamSink : public IUnknown
 {
 public:
