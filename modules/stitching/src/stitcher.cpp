@@ -59,7 +59,7 @@ Stitcher Stitcher::createDefault(bool try_use_gpu)
 #ifdef HAVE_OPENCV_CUDALEGACY
     if (try_use_gpu && cuda::getCudaEnabledDeviceCount() > 0)
     {
-#ifdef HAVE_OPENCV_XFEATURES2D
+#if defined(HAVE_OPENCV_XFEATURES2D) &&  defined(HAVE_OPENCV_NONFREE)
         stitcher.setFeaturesFinder(makePtr<detail::SurfFeaturesFinderGpu>());
 #else
         stitcher.setFeaturesFinder(makePtr<detail::OrbFeaturesFinder>());
@@ -70,7 +70,7 @@ Stitcher Stitcher::createDefault(bool try_use_gpu)
     else
 #endif
     {
-#ifdef HAVE_OPENCV_XFEATURES2D
+#if defined(HAVE_OPENCV_XFEATURES2D) &&  defined(HAVE_OPENCV_NONFREE)
         stitcher.setFeaturesFinder(makePtr<detail::SurfFeaturesFinder>());
 #else
         stitcher.setFeaturesFinder(makePtr<detail::OrbFeaturesFinder>());
