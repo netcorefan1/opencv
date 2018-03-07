@@ -74,7 +74,7 @@ if(WINRT)
   elseif(CMAKE_SYSTEM_VERSION MATCHES 8.1)
     set(WINRT_8_1 TRUE)
     add_definitions(-DWINRT_8_1)
-  elseif(CMAKE_SYSTEM_VERSION MATCHES 8.0)
+  elseif()
     set(WINRT_8_0 TRUE)
     add_definitions(-DWINRT_8_0)
   endif()
@@ -311,7 +311,7 @@ OCV_OPTION(INSTALL_TESTS            "Install accuracy and performance test binar
 # OpenCV build options
 # ===================================================
 OCV_OPTION(ENABLE_CCACHE              "Use ccache"                                               (UNIX AND NOT IOS AND (CMAKE_GENERATOR MATCHES "Makefile" OR CMAKE_GENERATOR MATCHES "Ninja")) )
-OCV_OPTION(ENABLE_PRECOMPILED_HEADERS "Use precompiled headers"                                  ON IF (NOT IOS AND NOT CMAKE_CROSSCOMPILING) )
+OCV_OPTION(ENABLE_PRECOMPILED_HEADERS "Use precompiled headers"                                  ON IF MSVC OR (NOT IOS AND NOT CMAKE_CROSSCOMPILING) )
 OCV_OPTION(ENABLE_SOLUTION_FOLDERS    "Solution folder in Visual Studio or in other IDEs"        (MSVC_IDE OR CMAKE_GENERATOR MATCHES Xcode) )
 OCV_OPTION(ENABLE_PROFILING           "Enable profiling in the GCC compiler (Add flags: -g -pg)" OFF  IF CMAKE_COMPILER_IS_GNUCXX )
 OCV_OPTION(ENABLE_COVERAGE            "Enable coverage collection with  GCov"                    OFF  IF CMAKE_COMPILER_IS_GNUCXX )
@@ -335,7 +335,7 @@ OCV_OPTION(CV_ENABLE_INTRINSICS       "Use intrinsic-based optimized code" ON )
 OCV_OPTION(CV_DISABLE_OPTIMIZATION    "Disable explicit optimized code (dispatched code/intrinsics/loop unrolling/etc)" OFF )
 OCV_OPTION(CV_TRACE                   "Enable OpenCV code trace" ON)
 
-OCV_OPTION(ENABLE_PYLINT              "Add target with Pylint checks"                            (${BUILD_DOCS} OR ${BUILD_EXAMPLES}) IF (NOT CMAKE_CROSSCOMPILING AND NOT APPLE_FRAMEWORK) )
+OCV_OPTION(ENABLE_PYLINT              "Add target with Pylint checks"                            OFF )
 
 if(ENABLE_IMPL_COLLECTION)
   add_definitions(-DCV_COLLECT_IMPL_DATA)
