@@ -45,7 +45,8 @@
 #ifdef HAVE_OPENCL
 
 #ifndef CL_RUNTIME_EXPORT
-#if (defined(BUILD_SHARED_LIBS) || defined(OPENCV_CORE_SHARED)) && (defined _WIN32 || defined WINCE)
+#if (defined(BUILD_SHARED_LIBS) || defined(OPENCV_CORE_SHARED)) && (defined _WIN32 || defined WINCE) && \
+    !(defined(__OPENCV_BUILD) && defined(OPENCV_MODULE_IS_PART_OF_WORLD))
 #define CL_RUNTIME_EXPORT __declspec(dllimport)
 #else
 #define CL_RUNTIME_EXPORT
@@ -75,7 +76,7 @@
 #endif
 
 #ifndef CL_VERSION_1_2
-#define CV_REQUIRE_OPENCL_1_2_ERROR CV_ErrorNoReturn(cv::Error::OpenCLApiCallError, "OpenCV compiled without OpenCL v1.2 support, so we can't use functionality from OpenCL v1.2")
+#define CV_REQUIRE_OPENCL_1_2_ERROR CV_Error(cv::Error::OpenCLApiCallError, "OpenCV compiled without OpenCL v1.2 support, so we can't use functionality from OpenCL v1.2")
 #endif
 
 #endif // HAVE_OPENCL

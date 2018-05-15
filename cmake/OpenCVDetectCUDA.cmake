@@ -3,7 +3,7 @@ if(WIN32 AND NOT MSVC)
   return()
 endif()
 
-if(CMAKE_COMPILER_IS_GNUCXX AND NOT APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(NOT APPLE AND CV_CLANG)
   message(STATUS "CUDA compilation is disabled (due to Clang unsupported on your platform).")
   return()
 endif()
@@ -200,6 +200,9 @@ if(CUDA_FOUND)
       string(REPLACE "-frtti" "" ${var} "${${var}}")
 
       string(REPLACE "-fvisibility-inlines-hidden" "" ${var} "${${var}}")
+
+      # cc1: warning: command line option '-Wsuggest-override' is valid for C++/ObjC++ but not for C
+      string(REPLACE "-Wsuggest-override" "" ${var} "${${var}}")
     endforeach()
   endmacro()
 
@@ -211,7 +214,7 @@ if(CUDA_FOUND)
     endif()
 
     if(UNIX OR APPLE)
-      set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler -fPIC)
+      set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler -fPIC --std=c++11)
     endif()
     if(APPLE)
       set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -Xcompiler -fno-finite-math-only)
@@ -222,7 +225,7 @@ if(CUDA_FOUND)
     endif()
 
     # disabled because of multiple warnings during building nvcc auto generated files
-    if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.6.0")
+    if(CV_GCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.6.0")
       ocv_warnings_disable(CMAKE_CXX_FLAGS -Wunused-but-set-variable)
     endif()
 

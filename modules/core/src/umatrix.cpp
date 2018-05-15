@@ -41,6 +41,7 @@
 
 #include "precomp.hpp"
 #include "opencl_kernels_core.hpp"
+#include "umatrix.hpp"
 
 ///////////////////////////////// UMat implementation ///////////////////////////////
 
@@ -127,21 +128,108 @@ UMatData::~UMatData()
     }
 }
 
+static size_t getUMatDataLockIndex(const UMatData* u)
+{
+    size_t idx = ((size_t)(void*)u) % UMAT_NLOCKS;
+    return idx;
+}
+
 void UMatData::lock()
 {
-    umatLocks[(size_t)(void*)this % UMAT_NLOCKS].lock();
+    size_t idx = getUMatDataLockIndex(this);
+    //printf("%d lock(%d)\n", cv::utils::getThreadID(), (int)idx);
+    umatLocks[idx].lock();
 }
 
 void UMatData::unlock()
 {
-    umatLocks[(size_t)(void*)this % UMAT_NLOCKS].unlock();
+    size_t idx = getUMatDataLockIndex(this);
+    //printf("%d unlock(%d)\n", cv::utils::getThreadID(), (int)idx);
+    umatLocks[idx].unlock();
+}
+
+
+// Do not allow several lock() calls with different UMatData objects.
+struct UMatDataAutoLocker
+{
+    int usage_count;
+    UMatData* locked_objects[2];
+    UMatDataAutoLocker() : usage_count(0) { locked_objects[0] = NULL; locked_objects[1] = NULL; }
+
+    void lock(UMatData*& u1)
+    {
+        bool locked_1 = (u1 == locked_objects[0] || u1 == locked_objects[1]);
+        if (locked_1)
+        {
+            u1 = NULL;
+            return;
+        }
+        CV_Assert(usage_count == 0);  // UMatDataAutoLock can't be used multiple times from the same thread
+        usage_count = 1;
+        locked_objects[0] = u1;
+        u1->lock();
+    }
+    void lock(UMatData*& u1, UMatData*& u2)
+    {
+        bool locked_1 = (u1 == locked_objects[0] || u1 == locked_objects[1]);
+        bool locked_2 = (u2 == locked_objects[0] || u2 == locked_objects[1]);
+        if (locked_1)
+            u1 = NULL;
+        if (locked_2)
+            u2 = NULL;
+        if (locked_1 && locked_2)
+            return;
+        CV_Assert(usage_count == 0);  // UMatDataAutoLock can't be used multiple times from the same thread
+        usage_count = 1;
+        locked_objects[0] = u1;
+        locked_objects[1] = u2;
+        if (u1)
+            u1->lock();
+        if (u2)
+            u2->lock();
+    }
+    void release(UMatData* u1, UMatData* u2)
+    {
+        if (u1 == NULL && u2 == NULL)
+            return;
+        CV_Assert(usage_count == 1);
+        usage_count = 0;
+        if (u1)
+            u1->unlock();
+        if (u2)
+            u2->unlock();
+        locked_objects[0] = NULL; locked_objects[1] = NULL;
+    }
+};
+static TLSData<UMatDataAutoLocker>& getUMatDataAutoLockerTLS()
+{
+    CV_SINGLETON_LAZY_INIT_REF(TLSData<UMatDataAutoLocker>, new TLSData<UMatDataAutoLocker>());
+}
+static UMatDataAutoLocker& getUMatDataAutoLocker() { return getUMatDataAutoLockerTLS().getRef(); }
+
+
+UMatDataAutoLock::UMatDataAutoLock(UMatData* u) : u1(u), u2(NULL)
+{
+    getUMatDataAutoLocker().lock(u1);
+}
+UMatDataAutoLock::UMatDataAutoLock(UMatData* u1_, UMatData* u2_) : u1(u1_), u2(u2_)
+{
+    if (getUMatDataLockIndex(u1) > getUMatDataLockIndex(u2))
+    {
+        std::swap(u1, u2);
+    }
+    getUMatDataAutoLocker().lock(u1, u2);
+}
+UMatDataAutoLock::~UMatDataAutoLock()
+{
+    getUMatDataAutoLocker().release(u1, u2);
 }
 
 
 MatAllocator* UMat::getStdAllocator()
 {
 #ifdef HAVE_OPENCL
-    if( ocl::haveOpenCL() && ocl::useOpenCL() )
+    if (ocl::useOpenCL())
         return ocl::getOpenCLAllocator();
 #endif
     return Mat::getDefaultAllocator();
@@ -293,13 +381,14 @@ UMat Mat::getUMat(int accessFlags, UMatUsageFlags usageFlags) const
         if(!a)
             a = a0;
         new_u = a->allocate(dims, size.p, type(), data, step.p, accessFlags, usageFlags);
+        new_u->originalUMatData = u;
     }
     bool allocated = false;
-    try
+    CV_TRY
     {
         allocated = UMat::getStdAllocator()->allocate(new_u, accessFlags, usageFlags);
     }
-    catch (const cv::Exception& e)
+    CV_CATCH(cv::Exception, e)
     {
         fprintf(stderr, "Exception: %s\n", e.what());
     }
@@ -316,7 +405,6 @@ UMat Mat::getUMat(int accessFlags, UMatUsageFlags usageFlags) const
             CV_Assert(new_u->tempUMat());
         }
 #endif
-        new_u->originalUMatData = u;
         CV_XADD(&(u->refcount), 1);
         CV_XADD(&(u->urefcount), 1);
     }
@@ -371,12 +459,12 @@ void UMat::create(int d, const int* _sizes, int _type, UMatUsageFlags _usageFlag
             a = a0;
             a0 = Mat::getDefaultAllocator();
         }
-        try
+        CV_TRY
         {
             u = a->allocate(dims, size, _type, 0, step.p, 0, usageFlags);
             CV_Assert(u != 0);
         }
-        catch(...)
+        CV_CATCH_ALL
         {
             if(a != a0)
                 u = a0->allocate(dims, size, _type, 0, step.p, 0, usageFlags);
@@ -749,8 +837,6 @@ UMat UMat::reshape(int _cn, int _newndims, const int* _newsz) const
     }
 
     CV_Error(CV_StsNotImplemented, "Reshaping of n-dimensional non-continuous matrices is not supported yet");
-    // TBD
-    return UMat();
 }
 
 Mat UMat::getMat(int accessFlags) const

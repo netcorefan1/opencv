@@ -60,7 +60,7 @@ public:
 
     UMatData* allocate(int dims, const int* sizes, int type,
                        void* data0, size_t* step,
-                       int /*flags*/, UMatUsageFlags /*usageFlags*/) const
+                       int /*flags*/, UMatUsageFlags /*usageFlags*/) const CV_OVERRIDE
     {
         size_t total = CV_ELEM_SIZE(type);
         for (int i = dims-1; i >= 0; i--)
@@ -100,12 +100,12 @@ public:
         return u;
     }
 
-    bool allocate(UMatData* u, int /*accessFlags*/, UMatUsageFlags /*usageFlags*/) const
+    bool allocate(UMatData* u, int /*accessFlags*/, UMatUsageFlags /*usageFlags*/) const CV_OVERRIDE
     {
         return (u != NULL);
     }
 
-    void deallocate(UMatData* u) const
+    void deallocate(UMatData* u) const CV_OVERRIDE
     {
         if (!u)
             return;
@@ -138,7 +138,6 @@ MatAllocator* cv::cuda::HostMem::getAllocator(AllocType alloc_type)
 #ifndef HAVE_CUDA
     (void) alloc_type;
     throw_no_cuda();
-    return NULL;
 #else
     static std::map<unsigned int, Ptr<MatAllocator> > allocators;
 
@@ -302,7 +301,6 @@ GpuMat cv::cuda::HostMem::createGpuMatHeader() const
 {
 #ifndef HAVE_CUDA
     throw_no_cuda();
-    return GpuMat();
 #else
     CV_Assert( alloc_type == SHARED );
 
