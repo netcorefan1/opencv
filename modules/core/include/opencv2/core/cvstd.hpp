@@ -386,6 +386,8 @@ struct Ptr
     template<typename Y>
     Ptr<Y> dynamicCast() const;
 
+    void addref();
+
     Ptr(Ptr&& o);
     Ptr& operator = (Ptr&& o);
 
