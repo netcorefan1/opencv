@@ -87,6 +87,9 @@ public:
         std::vector<UMat> outputs;
         std::vector<UMat> internals;
 
+        if (inputs_.depth() == CV_16S)
+            return false;
+
         inputs_.getUMatVector(inputs);
         outputs_.getUMatVector(outputs);
         internals_.getUMatVector(internals);
@@ -162,7 +165,7 @@ public:
         CV_TRACE_FUNCTION();
         CV_TRACE_ARG_VALUE(name, "name", name.c_str());
 
-        CV_OCL_RUN((preferableTarget == DNN_TARGET_OPENCL) &&
+        CV_OCL_RUN(IS_DNN_OPENCL_TARGET(preferableTarget) &&
                    OCL_PERFORMANCE_CHECK(ocl::Device::getDefault().isIntel()),
                    forward_ocl(inputs_arr, outputs_arr, internals_arr))
 
@@ -251,7 +254,7 @@ public:
         ieLayer->params["across_spatial"] = acrossSpatial ? "1" : "0";
         ieLayer->params["channel_shared"] = blobs[0].total() == 1 ? "1" : "0";
 
-        const int numChannels = blobs[0].total();
+        const size_t numChannels = blobs[0].total();
         ieLayer->blobs["weights"] = wrapToInfEngineBlob(blobs[0], {numChannels}, InferenceEngine::Layout::C);
         return Ptr<BackendNode>(new InfEngineBackendNode(ieLayer));
 #endif  // HAVE_INF_ENGINE
