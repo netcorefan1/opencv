@@ -307,7 +307,7 @@ struct ColumnSum<int, uchar> :
 
 #if CV_SIMD128
         bool haveSIMD128 = hasSIMD128();
-        #endif
+#endif
 
         if( width != (int)sum.size() )
         {
@@ -326,12 +326,12 @@ struct ColumnSum<int, uchar> :
 #if CV_SIMD128
                 if( haveSIMD128 )
                 {
-                    for( ; i <= width-4; i+=4 )
+                    for (; i <= width - 4; i += 4)
                     {
                         v_store(SUM + i, v_load(SUM + i) + v_load(Sp + i));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                     SUM[i] += Sp[i];
             }
@@ -370,7 +370,7 @@ struct ColumnSum<int, uchar> :
                         v_store(SUM + i + 4, v_s01 - v_load(Sm + i + 4));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                 {
                     int s0 = SUM[i] + Sp[i];
@@ -396,7 +396,7 @@ struct ColumnSum<int, uchar> :
                         v_store(SUM + i + 4, v_s01 - v_load(Sm + i + 4));
                     }
                 }
-                #endif
+#endif
 
                 for( ; i < width; i++ )
                 {
@@ -474,7 +474,7 @@ public BaseColumnFilter
 #if CV_SIMD128
                 if( haveSIMD128 )
                 {
-                    for( ; i <= width-8; i+=8 )
+                    for( ; i <= width - 8; i += 8 )
                     {
                         v_store(SUM + i, v_load(SUM + i) + v_load(Sp + i));
                     }
@@ -584,7 +584,7 @@ struct ColumnSum<int, short> :
 
 #if CV_SIMD128
         bool haveSIMD128 = hasSIMD128();
-        #endif
+#endif
 
         if( width != (int)sum.size() )
         {
@@ -603,7 +603,7 @@ struct ColumnSum<int, short> :
 #if CV_SIMD128
                 if( haveSIMD128 )
                 {
-                    for( ; i <= width-4; i+=4 )
+                    for( ; i <= width - 4; i+=4 )
                     {
                         v_store(SUM + i, v_load(SUM + i) + v_load(Sp + i));
                     }
@@ -644,7 +644,7 @@ struct ColumnSum<int, short> :
                         v_store(SUM + i + 4, v_s01 - v_load(Sm + i + 4));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                 {
                     int s0 = SUM[i] + Sp[i];
@@ -669,7 +669,7 @@ struct ColumnSum<int, short> :
                         v_store(SUM + i + 4, v_s01 - v_load(Sm + i + 4));
                     }
                 }
-                #endif
+#endif
 
                 for( ; i < width; i++ )
                 {
@@ -711,7 +711,7 @@ struct ColumnSum<int, ushort> :
 
 #if CV_SIMD128
         bool haveSIMD128 = hasSIMD128();
-        #endif
+#endif
 
         if( width != (int)sum.size() )
         {
@@ -730,12 +730,12 @@ struct ColumnSum<int, ushort> :
 #if CV_SIMD128
                 if( haveSIMD128 )
                 {
-                    for( ; i <= width-4; i+=4 )
+                    for (; i <= width - 4; i += 4)
                     {
                         v_store(SUM + i, v_load(SUM + i) + v_load(Sp + i));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                     SUM[i] += Sp[i];
             }
@@ -771,7 +771,7 @@ struct ColumnSum<int, ushort> :
                         v_store(SUM + i + 4, v_s01 - v_load(Sm + i + 4));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                 {
                     int s0 = SUM[i] + Sp[i];
@@ -796,7 +796,7 @@ struct ColumnSum<int, ushort> :
                         v_store(SUM + i + 4, v_s01 - v_load(Sm + i + 4));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                 {
                     int s0 = SUM[i] + Sp[i];
@@ -836,7 +836,7 @@ struct ColumnSum<int, int> :
 
 #if CV_SIMD128
         bool haveSIMD128 = hasSIMD128();
-        #endif
+#endif
 
         if( width != (int)sum.size() )
         {
@@ -855,12 +855,12 @@ struct ColumnSum<int, int> :
 #if CV_SIMD128
                 if( haveSIMD128 )
                 {
-                    for( ; i <= width-4; i+=4 )
+                    for( ; i <= width - 4; i+=4 )
                     {
                         v_store(SUM + i, v_load(SUM + i) + v_load(Sp + i));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                     SUM[i] += Sp[i];
             }
@@ -892,7 +892,7 @@ struct ColumnSum<int, int> :
                         v_store(SUM + i, v_s0 - v_load(Sm + i));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                 {
                     int s0 = SUM[i] + Sp[i];
@@ -914,7 +914,7 @@ struct ColumnSum<int, int> :
                         v_store(SUM + i, v_s0 - v_load(Sm + i));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                 {
                     int s0 = SUM[i] + Sp[i];
@@ -955,7 +955,7 @@ struct ColumnSum<int, float> :
 
 #if CV_SIMD128
         bool haveSIMD128 = hasSIMD128();
-        #endif
+#endif
 
         if( width != (int)sum.size() )
         {
@@ -974,12 +974,12 @@ struct ColumnSum<int, float> :
 #if CV_SIMD128
                 if( haveSIMD128 )
                 {
-                    for( ; i <= width-4; i+=4 )
+                    for( ; i <= width - 4; i+=4 )
                     {
                         v_store(SUM + i, v_load(SUM + i) + v_load(Sp + i));
                     }
                 }
-                #endif
+#endif
 
                 for( ; i < width; i++ )
                     SUM[i] += Sp[i];
@@ -1004,7 +1004,7 @@ struct ColumnSum<int, float> :
                 if( haveSIMD128 )
                 {
                     v_float32x4 v_scale = v_setall_f32((float)_scale);
-                    for( ; i <= width-8; i+=8 )
+                    for (; i <= width - 8; i += 8)
                     {
                         v_int32x4 v_s0 = v_load(SUM + i) + v_load(Sp + i);
                         v_int32x4 v_s01 = v_load(SUM + i + 4) + v_load(Sp + i + 4);
@@ -1016,7 +1016,7 @@ struct ColumnSum<int, float> :
                         v_store(SUM + i + 4, v_s01 - v_load(Sm + i + 4));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                 {
                     int s0 = SUM[i] + Sp[i];
@@ -1043,7 +1043,7 @@ struct ColumnSum<int, float> :
                         v_store(SUM + i + 4, v_s01 - v_load(Sm + i + 4));
                     }
                 }
-                #endif
+#endif
                 for( ; i < width; i++ )
                 {
                     int s0 = SUM[i] + Sp[i];
@@ -1509,13 +1509,13 @@ static bool ipp_boxfilter(Mat &src, Mat &dst, Size ksize, Point anchor, bool nor
             return false;
 
         CV_INSTRUMENT_FUN_IPP(::ipp::iwiFilterBox, iwSrc, iwDst, iwKSize, ::ipp::IwDefault(), ippBorder);
-        }
+    }
     catch (::ipp::IwException)
     {
-            return false;
+        return false;
     }
 
-            return true;
+    return true;
 #else
     CV_UNUSED(src); CV_UNUSED(dst); CV_UNUSED(ksize); CV_UNUSED(anchor); CV_UNUSED(normalize); CV_UNUSED(borderType);
     return false;
@@ -4073,8 +4073,8 @@ static bool ipp_GaussianBlur(InputArray _src, OutputArray _dst, Size ksize,
     {
         Mat src = _src.getMat();
         Mat dst = _dst.getMat();
-        ::ipp::IwiImage iwSrc      = ippiGetImage(src);
-        ::ipp::IwiImage iwDst      = ippiGetImage(dst);
+        ::ipp::IwiImage       iwSrc      = ippiGetImage(src);
+        ::ipp::IwiImage       iwDst      = ippiGetImage(dst);
         ::ipp::IwiBorderSize  borderSize = ::ipp::iwiSizeToBorderSize(ippiGetSize(ksize));
         ::ipp::IwiBorderType  ippBorder(ippiGetBorder(iwSrc, borderType, borderSize));
         if(!ippBorder)
@@ -4387,7 +4387,7 @@ medianBlur_8u_O1( const Mat& _src, Mat& _dst, int ksize )
                     }
                 }
                 else
-            #endif
+#endif
                 {
                     for( j = 0; j < 2*r; ++j )
                         histogram_add( &h_coarse[16*(n*c+j)], H[c].coarse );
@@ -5267,7 +5267,7 @@ public:
 #if CV_SIMD128
         int CV_DECL_ALIGNED(16) buf[4];
         bool haveSIMD128 = hasSIMD128();
-        #endif
+#endif
 
         for( i = range.start; i < range.end; i++ )
         {
@@ -5320,7 +5320,7 @@ public:
                         sum += bufFloat[1];
                         wsum += bufFloat[0];
                     }
-                    #endif
+#endif
                     for( ; k < maxk; k++ )
                     {
                         int val = sptr[j + space_ofs[k]];
@@ -5403,7 +5403,7 @@ public:
                         sum_g += bufFloat[2];
                         sum_r += bufFloat[3];
                     }
-                    #endif
+#endif
 
                     for( ; k < maxk; k++ )
                     {
@@ -5605,7 +5605,7 @@ public:
 #if CV_SIMD128
         int CV_DECL_ALIGNED(16) idxBuf[4];
         bool haveSIMD128 = hasSIMD128();
-        #endif
+#endif
 
         for( i = range.start; i < range.end; i++ )
         {
@@ -5627,7 +5627,7 @@ public:
                         const v_float32x4 _val0 = v_setall_f32(sptr[j]);
                         const v_float32x4 _scale_index = v_setall_f32(scale_index);
 
-                        for( ; k <= maxk - 4 ; k += 4 )
+                        for (; k <= maxk - 4; k += 4)
                         {
                             v_float32x4 _sw = v_load(space_weight + k);
                             v_float32x4 _val = v_float32x4(sptr[j + space_ofs[k]],
@@ -5749,7 +5749,7 @@ public:
                         sum_g += bufFloat[2];
                         sum_r += bufFloat[3];
                     }
-                    #endif
+#endif
 
                     for(; k < maxk; k++ )
                     {
