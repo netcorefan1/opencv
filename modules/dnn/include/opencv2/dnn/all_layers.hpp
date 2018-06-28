@@ -362,6 +362,23 @@ CV__DNN_EXPERIMENTAL_NS_BEGIN
     };
 
     /**
+     * Permute channels of 4-dimensional input blob.
+     * @param group Number of groups to split input channels and pick in turns
+     *              into output blob.
+     *
+     * \f[ groupSize = \frac{number\ of\ channels}{group} \f]
+     * \f[ output(n, c, h, w) = input(n, groupSize \times (c \% group) + \lfloor \frac{c}{group} \rfloor, h, w) \f]
+     * Read more at https://arxiv.org/pdf/1707.01083.pdf
+     */
+    class CV_EXPORTS ShuffleChannelLayer : public Layer
+    {
+    public:
+        static Ptr<Layer> create(const LayerParams& params);
+
+        int group;
+    };
+
+    /**
      * @brief Adds extra values for specific axes.
      * @param paddings Vector of paddings in format
      *                 @code
@@ -565,14 +582,25 @@ CV__DNN_EXPERIMENTAL_NS_BEGIN
     };
 
     /**
-     * @brief Resize input 4-dimensional blob by nearest neighbor strategy.
+     * @brief Resize input 4-dimensional blob by nearest neighbor or bilinear strategy.
      *
-     * Layer is used to support TensorFlow's resize_nearest_neighbor op.
+     * Layer is used to support TensorFlow's resize_nearest_neighbor and resize_bilinear ops.
      */
-    class CV_EXPORTS ResizeNearestNeighborLayer : public Layer
+    class CV_EXPORTS ResizeLayer : public Layer
     {
     public:
-        static Ptr<ResizeNearestNeighborLayer> create(const LayerParams& params);
+        static Ptr<ResizeLayer> create(const LayerParams& params);
+    };
+
+    /**
+     * @brief Bilinear resize layer from https://github.com/cdmh/deeplab-public
+     *
+     * It differs from @ref ResizeLayer in output shape and resize scales computations.
+     */
+    class CV_EXPORTS InterpLayer : public Layer
+    {
+    public:
+        static Ptr<Layer> create(const LayerParams& params);
     };
 
     class CV_EXPORTS ProposalLayer : public Layer

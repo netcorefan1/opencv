@@ -1,3 +1,9 @@
+// This file is part of OpenCV project.
+// It is subject to the license terms in the LICENSE file found in the top-level directory
+// of this distribution and at http://opencv.org/license.html.
+
+// Copyright (C) 2018, Intel Corporation, all rights reserved.
+// Third party copyrights are property of their respective owners.
 #include "../precomp.hpp"
 #include "layers_common.hpp"
 
@@ -68,7 +74,7 @@ public:
             {
                 float input_y = top * (inpHeight - 1) + y * heightScale;
                 int y0 = static_cast<int>(input_y);
-                const float* inpData_row0 = (float*)inp.data + y0 * inpWidth;
+                const float* inpData_row0 = inp.ptr<float>(0, 0, y0);
                 const float* inpData_row1 = (y0 + 1 < inpHeight) ? (inpData_row0 + inpWidth) : inpData_row0;
                 for (int x = 0; x < outWidth; ++x)
                 {

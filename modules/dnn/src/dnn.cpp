@@ -66,6 +66,15 @@ static bool DNN_DISABLE_MEMORY_OPTIMIZATIONS = utils::getConfigurationParameterB
 static bool DNN_OPENCL_ALLOW_ALL_DEVICES = utils::getConfigurationParameterBool("OPENCV_DNN_OPENCL_ALLOW_ALL_DEVICES", false);
 #endif
 
+static int PARAM_DNN_BACKEND_DEFAULT = (int)utils::getConfigurationParameterSizeT("OPENCV_DNN_BACKEND_DEFAULT",
+#ifdef HAVE_INF_ENGINE
+    (size_t)DNN_BACKEND_INFERENCE_ENGINE
+#else
+    (size_t)DNN_BACKEND_OPENCV
+#endif
+);
+
+
 using std::vector;
 using std::map;
 using std::make_pair;
@@ -225,7 +234,7 @@ void imagesFromBlob(const cv::Mat& blob_, OutputArrayOfArrays images_)
 class OpenCLBackendWrapper : public BackendWrapper
 {
 public:
-    OpenCLBackendWrapper(Mat& m) : BackendWrapper(DNN_BACKEND_DEFAULT, DNN_TARGET_OPENCL)
+    OpenCLBackendWrapper(Mat& m) : BackendWrapper(DNN_BACKEND_OPENCV, DNN_TARGET_OPENCL)
     {
         m.copyTo(umat);
         host = &m;
@@ -233,7 +242,7 @@ public:
     }
 
     OpenCLBackendWrapper(const Ptr<BackendWrapper>& baseBuffer, Mat& m)
-        : BackendWrapper(DNN_BACKEND_DEFAULT, DNN_TARGET_OPENCL)
+        : BackendWrapper(DNN_BACKEND_OPENCV, DNN_TARGET_OPENCL)
     {
         Ptr<OpenCLBackendWrapper> base = baseBuffer.dynamicCast<OpenCLBackendWrapper>();
         CV_Assert(!base.empty());
@@ -654,7 +663,7 @@ private:
 
 static Ptr<BackendWrapper> wrapMat(int backendId, int targetId, cv::Mat& m)
 {
-    if (backendId == DNN_BACKEND_DEFAULT)
+    if (backendId == DNN_BACKEND_OPENCV)
     {
         if (targetId == DNN_TARGET_CPU)
             return Ptr<BackendWrapper>();
@@ -727,7 +736,7 @@ struct Net::Impl
 
     Ptr<BackendWrapper> wrap(Mat& host)
     {
-        if (preferableBackend == DNN_BACKEND_DEFAULT && preferableTarget == DNN_TARGET_CPU)
+        if (preferableBackend == DNN_BACKEND_OPENCV && preferableTarget == DNN_TARGET_CPU)
             return Ptr<BackendWrapper>();
 
         MatShape shape(host.dims);
@@ -738,7 +747,7 @@ struct Net::Impl
         if (backendWrappers.find(data) != backendWrappers.end())
         {
             Ptr<BackendWrapper> baseBuffer = backendWrappers[data];
-            if (preferableBackend == DNN_BACKEND_DEFAULT)
+            if (preferableBackend == DNN_BACKEND_OPENCV)
             {
                 CV_Assert(IS_DNN_OPENCL_TARGET(preferableTarget));
                 return OpenCLBackendWrapper::create(baseBuffer, host);
@@ -850,9 +859,24 @@ struct Net::Impl
     {
         CV_TRACE_FUNCTION();
 
+        if (preferableBackend == DNN_BACKEND_DEFAULT)
+            preferableBackend = (Backend)PARAM_DNN_BACKEND_DEFAULT;
+
+        CV_Assert(preferableBackend != DNN_BACKEND_OPENCV ||
+                  preferableTarget == DNN_TARGET_CPU ||
+                  preferableTarget == DNN_TARGET_OPENCL ||
+                  preferableTarget == DNN_TARGET_OPENCL_FP16);
+        CV_Assert(preferableBackend != DNN_BACKEND_HALIDE ||
+                  preferableTarget == DNN_TARGET_CPU ||
+                  preferableTarget == DNN_TARGET_OPENCL);
+        CV_Assert(preferableBackend != DNN_BACKEND_INFERENCE_ENGINE ||
+                  preferableTarget == DNN_TARGET_CPU ||
+                  preferableTarget == DNN_TARGET_OPENCL ||
+                  preferableTarget == DNN_TARGET_OPENCL_FP16 ||
+                  preferableTarget == DNN_TARGET_MYRIAD);
         if (!netWasAllocated || this->blobsToKeep != blobsToKeep_)
         {
-            if (preferableBackend == DNN_BACKEND_DEFAULT && IS_DNN_OPENCL_TARGET(preferableTarget))
+            if (preferableBackend == DNN_BACKEND_OPENCV && IS_DNN_OPENCL_TARGET(preferableTarget))
 #ifndef HAVE_OPENCL
             {
                 CV_LOG_WARNING(NULL, "DNN: OpenCL target is not available in this OpenCV build, switching to CPU.");
@@ -964,52 +988,26 @@ struct Net::Impl
         ld.inputBlobsId[inNum] = from;
     }
 
-    static void splitPin(const String &pinAlias, String &layerName, String &outName)
-    {
-        size_t delimPos = pinAlias.find('.');
-        layerName = pinAlias.substr(0, delimPos);
-        outName = (delimPos == String::npos) ? String() : pinAlias.substr(delimPos + 1);
-    }
-
     int resolvePinOutputName(LayerData &ld, const String &outName)
     {
         if (outName.empty())
             return 0;
-
-        if (std::isdigit(outName[0]))
-        {
-            char *lastChar;
-            long inum = std::strtol(outName.c_str(), &lastChar, 10);
-
-            if (*lastChar == 0)
-            {
-                CV_Assert(inum == (int)inum);
-                return (int)inum;
-            }
-        }
-
         return ld.getLayerInstance()->outputNameToIndex(outName);
     }
 
-    LayerPin getPinByAlias(const String &pinAlias)
+    LayerPin getPinByAlias(const String &layerName)
     {
         LayerPin pin;
-        String layerName, outName;
-        splitPin(pinAlias, layerName, outName);
-
         pin.lid = (layerName.empty()) ? 0 : getLayerId(layerName);
 
         if (pin.lid >= 0)
-            pin.oid = resolvePinOutputName(getLayerData(pin.lid), outName);
+            pin.oid = resolvePinOutputName(getLayerData(pin.lid), layerName);
 
         return pin;
     }
 
-    std::vector<LayerPin> getLayerOutPins(const String &pinAlias)
+    std::vector<LayerPin> getLayerOutPins(const String &layerName)
     {
-        String layerName, outName;
-        splitPin(pinAlias, layerName, outName);
-
         int lid = (layerName.empty()) ? 0 : getLayerId(layerName);
 
         std::vector<LayerPin> pins;
@@ -1036,7 +1034,7 @@ struct Net::Impl
     void initBackend()
     {
         CV_TRACE_FUNCTION();
-        if (preferableBackend == DNN_BACKEND_DEFAULT)
+        if (preferableBackend == DNN_BACKEND_OPENCV)
             CV_Assert(preferableTarget == DNN_TARGET_CPU || IS_DNN_OPENCL_TARGET(preferableTarget));
         else if (preferableBackend == DNN_BACKEND_HALIDE)
             initHalideBackend();
@@ -1375,7 +1373,7 @@ struct Net::Impl
         std::vector<LayerPin> pinsForInternalBlobs;
         blobManager.allocateBlobsForLayer(ld, layerShapesIt->second, pinsForInternalBlobs,
                                           preferableBackend == DNN_BACKEND_INFERENCE_ENGINE,
-                                          preferableBackend == DNN_BACKEND_DEFAULT &&
+                                          preferableBackend == DNN_BACKEND_OPENCV &&
                                           preferableTarget == DNN_TARGET_OPENCL_FP16);
         ld.outputBlobsWrappers.resize(ld.outputBlobs.size());
         for (int i = 0; i < ld.outputBlobs.size(); ++i)
@@ -1418,7 +1416,7 @@ struct Net::Impl
 
     void fuseLayers(const std::vector<LayerPin>& blobsToKeep_)
     {
-        if( !fusion || preferableBackend != DNN_BACKEND_DEFAULT &&
+        if( !fusion || preferableBackend != DNN_BACKEND_OPENCV &&
                        preferableBackend != DNN_BACKEND_INFERENCE_ENGINE)
             return;
 
@@ -1446,7 +1444,7 @@ struct Net::Impl
             // some other layers.
 
             // TODO: OpenCL target support more fusion styles.
-            if ( preferableBackend == DNN_BACKEND_DEFAULT && IS_DNN_OPENCL_TARGET(preferableTarget) &&
+            if ( preferableBackend == DNN_BACKEND_OPENCV && IS_DNN_OPENCL_TARGET(preferableTarget) &&
                  (!cv::ocl::useOpenCL() || (ld.layerInstance->type != "Convolution" &&
                  ld.layerInstance->type != "MVN")) )
                 continue;
@@ -1481,7 +1479,7 @@ struct Net::Impl
                         break;
                 }
 
-                if (preferableBackend != DNN_BACKEND_DEFAULT)
+                if (preferableBackend != DNN_BACKEND_OPENCV)
                     continue;  // Go to the next layer.
 
                 // For now, OpenCL target support fusion with activation of ReLU/ChannelsPReLU/Power/Tanh
@@ -1624,7 +1622,7 @@ struct Net::Impl
                 }
             }
 
-            if (preferableBackend != DNN_BACKEND_DEFAULT)
+            if (preferableBackend != DNN_BACKEND_OPENCV)
                 continue;  // Go to the next layer.
 
             // the optimization #2. if there is no layer that takes max pooling layer's computed
@@ -1735,7 +1733,7 @@ struct Net::Impl
         {
             CV_Assert(layers[0].outputBlobs[i].total());
             if (layers[0].outputBlobs[i].depth() == CV_32F &&
-                preferableBackend == DNN_BACKEND_DEFAULT &&
+                preferableBackend == DNN_BACKEND_OPENCV &&
                 preferableTarget == DNN_TARGET_OPENCL_FP16)
             {
                 Mat mat = layers[0].outputBlobs[i].clone();
@@ -1781,12 +1779,12 @@ struct Net::Impl
         TickMeter tm;
         tm.start();
 
-        if (preferableBackend == DNN_BACKEND_DEFAULT ||
+        if (preferableBackend == DNN_BACKEND_OPENCV ||
             !layer->supportBackend(preferableBackend))
         {
             if( !ld.skip )
             {
-                if (preferableBackend == DNN_BACKEND_DEFAULT && IS_DNN_OPENCL_TARGET(preferableTarget))
+                if (preferableBackend == DNN_BACKEND_OPENCV && IS_DNN_OPENCL_TARGET(preferableTarget))
                 {
                     std::vector<UMat> umat_outputBlobs = OpenCLBackendWrapper::getUMatVector(ld.outputBlobsWrappers);
                     layer->forward(OpenCLBackendWrapper::getUMatVector(ld.inputBlobsWrappers),
@@ -2020,12 +2018,6 @@ int Net::addLayer(const String &name, const String &type, LayerParams &params)
 {
     CV_TRACE_FUNCTION();
 
-    if (name.find('.') != String::npos)
-    {
-        CV_Error(Error::StsBadArg, "Added layer name \"" + name + "\" must not contain dot symbol");
-        return -1;
-    }
-
     if (impl->getLayerId(name) >= 0)
     {
         CV_Error(Error::StsBadArg, "Layer \"" + name + "\" already into net");
@@ -2132,7 +2124,7 @@ void Net::forward(OutputArrayOfArrays outputBlobs, const String& outputName)
     {
         std::vector<UMat> & outputvec = *(std::vector<UMat> *)outputBlobs.getObj();
 
-        if (impl->preferableBackend == DNN_BACKEND_DEFAULT &&
+        if (impl->preferableBackend == DNN_BACKEND_OPENCV &&
             IS_DNN_OPENCL_TARGET(impl->preferableTarget))
         {
             if (impl->preferableTarget == DNN_TARGET_OPENCL)
@@ -2234,7 +2226,13 @@ void Net::setPreferableTarget(int targetId)
         if (IS_DNN_OPENCL_TARGET(targetId))
         {
 #ifndef HAVE_OPENCL
-            impl->preferableTarget = DNN_TARGET_CPU;
+#ifdef HAVE_INF_ENGINE
+            if (impl->preferableBackend == DNN_BACKEND_OPENCV)
+#else
+            if (impl->preferableBackend == DNN_BACKEND_DEFAULT ||
+                impl->preferableBackend == DNN_BACKEND_OPENCV)
+#endif  // HAVE_INF_ENGINE
+                impl->preferableTarget = DNN_TARGET_CPU;
 #else
             bool fp16 = ocl::Device::getDefault().isExtensionSupported("cl_khr_fp16");
             if (!fp16 && targetId == DNN_TARGET_OPENCL_FP16)
@@ -2270,7 +2268,7 @@ void Net::setInput(InputArray blob, const String& name)
     ld.outputBlobsWrappers.resize(ld.outputBlobs.size());
     MatShape prevShape = shape(ld.outputBlobs[pin.oid]);
     Mat blob_;
-    if (impl->preferableBackend == DNN_BACKEND_DEFAULT &&
+    if (impl->preferableBackend == DNN_BACKEND_OPENCV &&
         impl->preferableTarget == DNN_TARGET_OPENCL_FP16)
     {
         Mat blob_mat = blob.getMat();
@@ -2659,12 +2657,12 @@ int Layer::inputNameToIndex(String)
 
 int Layer::outputNameToIndex(const String&)
 {
-    return -1;
+    return 0;
 }
 
 bool Layer::supportBackend(int backendId)
 {
-    return backendId == DNN_BACKEND_DEFAULT;
+    return backendId == DNN_BACKEND_OPENCV;
 }
 
 Ptr<BackendNode> Layer::initHalide(const std::vector<Ptr<BackendWrapper> > &)
