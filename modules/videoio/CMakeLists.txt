@@ -41,7 +41,6 @@ list(REMOVE_ITEM videoio_ext_hdrs "${CMAKE_CURRENT_LIST_DIR}/include/opencv2/${n
 # below are not available on WinRT 8.0.
 # Enabling it for WiRT 8.1+ only.
 if(DEFINED WINRT AND NOT DEFINED WINRT_8_0 AND NOT DEFINED ENABLE_WINRT_MODE_NATIVE)
-
     # WinRT detected. Adding WinRT API header
     message(STATUS "  ${name}: WinRT detected. Adding WinRT API header")
     list(APPEND videoio_ext_hdrs "${CMAKE_CURRENT_LIST_DIR}/include/opencv2/${name}/cap_winrt.hpp")
@@ -206,13 +205,13 @@ if(HAVE_AVFOUNDATION)
   endif()
 endif()
 
-if(HAVE_QUICKTIME)
-  list(APPEND videoio_srcs ${CMAKE_CURRENT_LIST_DIR}/src/cap_qt.cpp)
-  list(APPEND VIDEOIO_LIBRARIES "-framework Carbon" "-framework QuickTime" "-framework CoreFoundation" "-framework QuartzCore")
-elseif(HAVE_QTKIT)
-  list(APPEND videoio_srcs ${CMAKE_CURRENT_LIST_DIR}/src/cap_qtkit.mm)
-  list(APPEND VIDEOIO_LIBRARIES "-framework QTKit" "-framework QuartzCore" "-framework AppKit")
-endif()
+#if(HAVE_QUICKTIME)
+#  list(APPEND videoio_srcs ${CMAKE_CURRENT_LIST_DIR}/src/cap_qt.cpp)
+#  list(APPEND VIDEOIO_LIBRARIES "-framework Carbon" "-framework QuickTime" "-framework CoreFoundation" "-framework QuartzCore")
+#elseif(HAVE_QTKIT)
+#  list(APPEND videoio_srcs ${CMAKE_CURRENT_LIST_DIR}/src/cap_qtkit.mm)
+#  list(APPEND VIDEOIO_LIBRARIES "-framework QTKit" "-framework QuartzCore" "-framework AppKit")
+#endif()
 
 if(HAVE_INTELPERC)
   list(APPEND videoio_srcs ${CMAKE_CURRENT_LIST_DIR}/src/cap_intelperc.cpp)
@@ -278,17 +277,16 @@ if(WIN32 AND HAVE_FFMPEG_WRAPPER)
 
   if(MSVC_IDE)
     add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/Release/${ffmpeg_bare_name_ver}"
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/Debug/${ffmpeg_bare_name_ver}"
-                       COMMENT "Copying ${ffmpeg_path} to the output directory")
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
+                       COMMENT "Copying ${ffmpeg_path} to the output directory: ${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver} ")
   elseif(MSVC AND (CMAKE_GENERATOR MATCHES "Visual"))
     add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/${CMAKE_BUILD_TYPE}/${ffmpeg_bare_name_ver}"
-                       COMMENT "Copying ${ffmpeg_path} to the output directory")
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
+                       COMMENT "Copying ${ffmpeg_path} to the output directory: ${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}")
   else()
     add_custom_command(TARGET ${the_module} POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${EXECUTABLE_OUTPUT_PATH}/${ffmpeg_bare_name_ver}"
-                       COMMENT "Copying ${ffmpeg_path} to the output directory")
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ffmpeg_path}" "${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}"
+                       COMMENT "Copying ${ffmpeg_path} to the output directory: ${CMAKE_SOURCE_DIR}/libs${UNMANAGED_LIBRARY_OUTPUT_SUBFOLDER}/${ffmpeg_bare_name_ver}")
   endif()
 
   install(FILES "${ffmpeg_path}" DESTINATION ${OPENCV_BIN_INSTALL_PATH} COMPONENT libs RENAME "${ffmpeg_bare_name_ver}")

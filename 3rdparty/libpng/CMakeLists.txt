@@ -3,7 +3,7 @@
 #
 # ----------------------------------------------------------------------------
 
-if(ENABLE_NEON)
+if(ENABLE_NEON AND NOT APPLE) #PNG neon optimization is not able to compile for iOS
   project(${PNG_LIBRARY} C ASM)
 else()
   project(${PNG_LIBRARY} C)
@@ -27,14 +27,13 @@ ocv_include_directories("${CMAKE_CURRENT_SOURCE_DIR}" ${ZLIB_INCLUDE_DIRS})
 file(GLOB lib_srcs *.c)
 file(GLOB lib_hdrs *.h)
 
-
-if(ARM OR AARCH64)
-  if(ENABLE_NEON AND NOT AARCH64)
-    list(APPEND lib_srcs arm/arm_init.c arm/filter_neon.S arm/filter_neon_intrinsics.c)
-    add_definitions(-DPNG_ARM_NEON_OPT=2)
-  else()
-    add_definitions(-DPNG_ARM_NEON_OPT=0) # NEON assembler is not supported
-  endif()
+if (APPLE)
+  add_definitions(-DPNG_ARM_NEON_OPT=0) #PNG neon optimization is not able to compile for iOS
+elseif(ENABLE_NEON)
+  list(APPEND lib_srcs arm/arm_init.c arm/filter_neon.S arm/filter_neon_intrinsics.c)
+  add_definitions(-DPNG_ARM_NEON_OPT=2)
+else()
+  add_definitions(-DPNG_ARM_NEON_OPT=0) # NEON assembler is not supported
 endif()
 
 if(";${CPU_BASELINE_FINAL};" MATCHES "SSE2"
@@ -76,6 +75,10 @@ set_target_properties(${PNG_LIBRARY}
 if(ENABLE_SOLUTION_FOLDERS)
   set_target_properties(${PNG_LIBRARY} PROPERTIES FOLDER "3rdparty")
 endif()
+
+IF(DEFINED EMGUCV_PLATFORM_TOOLSET)
+  set_target_properties(${PNG_LIBRARY} PROPERTIES PLATFORM_TOOLSET ${EMGUCV_PLATFORM_TOOLSET})
+ENDIF()
 
 if(NOT BUILD_SHARED_LIBS)
   ocv_install_target(${PNG_LIBRARY} EXPORT OpenCVModules ARCHIVE DESTINATION ${OPENCV_3P_LIB_INSTALL_PATH} COMPONENT dev)
