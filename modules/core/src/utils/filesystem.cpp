@@ -258,7 +258,7 @@ struct FileLock::Impl
     Impl(const char* fname)
     {
 #if defined(WINAPI)
-		CV_ErrorNoReturn_(Error::StsAssert, ("Opening lock file %s is not implemented on WINAPI", fname));
+		CV_Error_(Error::StsAssert, ("Opening lock file %s is not implemented on WINAPI", fname));
 #else
         // http://support.microsoft.com/kb/316609
         int numRetries = 5;
