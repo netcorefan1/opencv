@@ -281,6 +281,7 @@ OCV_OPTION(WITH_PROTOBUF       "Enable libprotobuf"                          ON 
 OCV_OPTION(WITH_IMGCODEC_HDR   "Include HDR support"                         ON)
 OCV_OPTION(WITH_IMGCODEC_SUNRASTER "Include SUNRASTER support"               ON)
 OCV_OPTION(WITH_IMGCODEC_PXM   "Include PNM (PBM,PGM,PPM) and PAM formats support" ON)
+OCV_OPTION(WITH_IMGCODEC_PFM   "Include PFM formats support"                 ON)
 
 # OpenCV build components
 # ===================================================
@@ -1226,6 +1227,10 @@ if(WITH_IMGCODEC_PXM OR DEFINED HAVE_IMGCODEC_PXM)
   status("    PXM:" HAVE_IMGCODEC_PXM THEN "YES" ELSE "NO")
 endif()
 
+if(WITH_IMGCODEC_PFM OR DEFINED HAVE_IMGCODEC_PFM)
+  status("    PFM:" HAVE_IMGCODEC_PFM THEN "YES" ELSE "NO")
+endif()
+
 # ========================== VIDEO IO ==========================
 status("")
 status("  Video I/O:")
@@ -1401,8 +1406,22 @@ if(WITH_HALIDE OR HAVE_HALIDE)
   status("    Halide:"     HAVE_HALIDE      THEN "YES (${HALIDE_LIBRARIES} ${HALIDE_INCLUDE_DIRS})" ELSE NO)
 endif()
 
-if(WITH_INF_ENGINE OR HAVE_INF_ENGINE)
-  status("    Inference Engine:"     HAVE_INF_ENGINE     THEN "YES (${INF_ENGINE_LIBRARIES} ${INF_ENGINE_INCLUDE_DIRS})" ELSE NO)
+if(WITH_INF_ENGINE OR INF_ENGINE_TARGET)
+  if(INF_ENGINE_TARGET)
+    set(__msg "YES (${INF_ENGINE_RELEASE} / ${INF_ENGINE_VERSION})")
+    get_target_property(_lib ${INF_ENGINE_TARGET} IMPORTED_LOCATION)
+    if(NOT _lib)
+      get_target_property(_lib_rel ${INF_ENGINE_TARGET} IMPORTED_IMPLIB_RELEASE)
+      get_target_property(_lib_dbg ${INF_ENGINE_TARGET} IMPORTED_IMPLIB_DEBUG)
+      set(_lib "${_lib_rel} / ${_lib_dbg}")
+    endif()
+    get_target_property(_inc ${INF_ENGINE_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+    status("    Inference Engine:" "${__msg}")
+    status("                libs:" "${_lib}")
+    status("            includes:" "${_inc}")
+  else()
+    status("    Inference Engine:"     "NO")
+  endif()
 endif()
 
 if(WITH_EIGEN OR HAVE_EIGEN)
