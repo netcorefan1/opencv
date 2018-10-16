@@ -2574,6 +2574,8 @@ public:
     //! and the standard allocator
     static MatAllocator* getStdAllocator();
 
+    MatAllocator* getStdAllocator(MatAllocator* matAllocator);
+
     //! internal use method: updates the continuity flag
     void updateContinuityFlag();
 
