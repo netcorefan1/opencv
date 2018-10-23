@@ -86,6 +86,14 @@ void cv::viz::Viz3d::create(const String &window_name)
 
 void cv::viz::Viz3d::release()
 {
+	// Temporary fix. May cause memory leak
+	// This is to handle the case where impl_ is already disposed.
+	if (impl_ && impl_->ref_counter == 0)
+	{
+		impl_ = 0;
+		return;
+	}
+
     if (impl_ && CV_XADD(&impl_->ref_counter, -1) == 1)
     {
         delete impl_;
