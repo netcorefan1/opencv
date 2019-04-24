@@ -52,7 +52,12 @@ void* getSymbol_(LibHandle_t h, const char* symbolName)
 static inline
 LibHandle_t libraryLoad_(const char* filename)
 {
-#if defined(_WIN32)
+#if defined(WINRT_10)
+    wchar_t wfilename[1000];
+    mbstowcs(wfilename, filename, strlen(filename) + 1);//Plus null
+    LPWSTR ptr = wfilename;
+    return LoadPackagedLibrary(ptr, 0);
+#elif defined(_WIN32)
     return LoadLibraryA(filename);
 #elif defined(__linux__) || defined(__APPLE__)
     return dlopen(filename, RTLD_LAZY);
