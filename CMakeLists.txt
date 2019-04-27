@@ -488,6 +488,9 @@ if(ENABLE_IMPL_COLLECTION)
   add_definitions(-DCV_COLLECT_IMPL_DATA)
 endif()
 
+IF(WITH_CUDA)
+  include(cmake/FindCUDA.cmake)
+ENDIF()
 
 # ----------------------------------------------------------------------------
 #  Get actual OpenCV version number from sources
@@ -913,6 +916,7 @@ unset(_hal_includes)
 # Add CUDA libraries (needed for apps/tools, samples)
 # ----------------------------------------------------------------------------
 if(HAVE_CUDA)
+
   set(OPENCV_LINKER_LIBS ${OPENCV_LINKER_LIBS} ${CUDA_LIBRARIES} ${CUDA_npp_LIBRARY})
   if(HAVE_CUBLAS)
     set(OPENCV_LINKER_LIBS ${OPENCV_LINKER_LIBS} ${CUDA_cublas_LIBRARY})
