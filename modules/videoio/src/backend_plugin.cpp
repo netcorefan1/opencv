@@ -85,7 +85,12 @@ void* getSymbol_(LibHandle_t h, const char* symbolName)
 static inline
 LibHandle_t libraryLoad_(const FileSystemPath_t& filename)
 {
-#if defined(_WIN32)
+#if defined(WINRT_10)
+    wchar_t wfilename[1000];
+    mbstowcs(wfilename, filename, strlen(filename) + 1);//Plus null
+    LPWSTR ptr = wfilename;
+    return LoadPackagedLibrary(ptr, 0);
+#elif defined(_WIN32)
 # ifdef WINRT
     return LoadPackagedLibrary(filename.c_str(), 0);
 # else

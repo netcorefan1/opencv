@@ -501,6 +501,9 @@ if(ENABLE_IMPL_COLLECTION)
   add_definitions(-DCV_COLLECT_IMPL_DATA)
 endif()
 
+IF(WITH_CUDA)
+  include(cmake/FindCUDA.cmake)
+ENDIF()
 
 # ----------------------------------------------------------------------------
 #  Get actual OpenCV version number from sources
