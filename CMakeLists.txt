@@ -487,6 +487,9 @@ if(ENABLE_IMPL_COLLECTION)
 endif()
 
 set(OPENCV_MATHJAX_RELPATH "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0" CACHE STRING "URI to a MathJax installation")
+IF(WITH_CUDA)
+  include(cmake/FindCUDA.cmake)
+ENDIF()
 
 # ----------------------------------------------------------------------------
 #  Get actual OpenCV version number from sources
