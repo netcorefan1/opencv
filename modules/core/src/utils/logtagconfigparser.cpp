@@ -298,11 +298,11 @@ std::string LogTagConfigParser::toString(LogLevel level)
     case LOG_LEVEL_VERBOSE:
         return "VERBOSE";
     default:
-#ifdef ANDROID 
-        return static_cast< std::ostringstream & >( ( std::ostringstream() << std::dec << level ) ).str();
-#else
+//#ifdef ANDROID 
+//      return static_cast< std::ostringstream & >( ( std::ostringstream() << std::dec << level ) ).str();
+//#else
         return std::to_string((int)level);
-#endif
+//#endif
     }
 }
 
