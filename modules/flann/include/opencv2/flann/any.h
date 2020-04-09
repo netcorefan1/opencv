@@ -273,7 +273,7 @@ public:
     template<typename T>
     T& cast()
     {
-#if !__APPLE__ //needed to get around an iOS ARM64 compiler issue
+#ifndef __APPLE__ //needed to get around an iOS ARM64 compiler issue
         if (policy->type() != typeid(T)) throw anyimpl::bad_any_cast();
 #endif
         T* r = reinterpret_cast<T*>(policy->get_value(&object));
@@ -284,7 +284,7 @@ public:
     template<typename T>
     const T& cast() const
     {
-#if !__APPLE__ //needed to get around an iOS ARM64 compiler issue
+#ifndef __APPLE__ //needed to get around an iOS ARM64 compiler issue
         if (policy->type() != typeid(T)) throw anyimpl::bad_any_cast();
 #endif
         const T* r = reinterpret_cast<const T*>(policy->get_value(&object));
