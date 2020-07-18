@@ -504,6 +504,9 @@ if(ENABLE_IMPL_COLLECTION)
 endif()
 
 set(OPENCV_MATHJAX_RELPATH "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0" CACHE STRING "URI to a MathJax installation")
+IF(WITH_CUDA)
+  include(cmake/FindCUDA.cmake)
+ENDIF()
 
 # ----------------------------------------------------------------------------
 #  Get actual OpenCV version number from sources
@@ -948,11 +951,11 @@ endif()
 if(ANDROID OR NOT UNIX)
   install(FILES ${OPENCV_LICENSE_FILE}
         PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-        DESTINATION ./ COMPONENT libs)
+        DESTINATION opencv COMPONENT libs)
   if(OPENCV_README_FILE)
     install(FILES ${OPENCV_README_FILE}
             PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-            DESTINATION ./ COMPONENT libs)
+            DESTINATION opencv COMPONENT libs)
   endif()
 endif()
 

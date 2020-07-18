@@ -392,7 +392,7 @@ void MultiBandBlender::feed(InputArray _img, InputArray mask, Point tl)
     int bottom = br_new.y - tl.y - img.rows;
     int right = br_new.x - tl.x - img.cols;
 
-#if defined(HAVE_OPENCV_CUDAARITHM) && defined(HAVE_OPENCV_CUDAWARPING)
+#if defined(HAVE_OPENCV_CUDAARITHM) && defined(HAVE_OPENCV_CUDAWARPING) && defined(HAVE_CUDA)
     if (can_use_gpu_)
     {
         if (!gpu_initialized_)
@@ -601,7 +601,7 @@ void MultiBandBlender::feed(InputArray _img, InputArray mask, Point tl)
 void MultiBandBlender::blend(InputOutputArray dst, InputOutputArray dst_mask)
 {
     Rect dst_rc(0, 0, dst_roi_final_.width, dst_roi_final_.height);
-#if defined(HAVE_OPENCV_CUDAARITHM) && defined(HAVE_OPENCV_CUDAWARPING)
+#if defined(HAVE_OPENCV_CUDAARITHM) && defined(HAVE_OPENCV_CUDAWARPING) && defined(HAVE_CUDA)
     if (can_use_gpu_)
     {
         if (!gpu_initialized_)
