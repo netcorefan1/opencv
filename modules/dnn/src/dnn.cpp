@@ -1585,7 +1585,9 @@ struct Net::Impl : public detail::NetImplBase
     {
         CV_TRACE_FUNCTION();
         if (preferableBackend == DNN_BACKEND_OPENCV)
+        {
             CV_Assert(preferableTarget == DNN_TARGET_CPU || IS_DNN_OPENCL_TARGET(preferableTarget));
+        }
         else if (preferableBackend == DNN_BACKEND_HALIDE)
             initHalideBackend();
         else if (preferableBackend == DNN_BACKEND_INFERENCE_ENGINE_NN_BUILDER_2019)
@@ -2225,7 +2227,9 @@ struct Net::Impl : public detail::NetImplBase
 
                     auto ieInpNode = inputNodes[i].dynamicCast<InfEngineNgraphNode>();
                     CV_Assert(oid < ieInpNode->node->get_output_size());
-#if INF_ENGINE_VER_MAJOR_GT(INF_ENGINE_RELEASE_2020_3)
+#if INF_ENGINE_VER_MAJOR_GT(INF_ENGINE_RELEASE_2020_4)
+                    inputNodes[i] = Ptr<BackendNode>(new InfEngineNgraphNode(ieInpNode->node));
+#elif INF_ENGINE_VER_MAJOR_GT(INF_ENGINE_RELEASE_2020_3)
                     inputNodes[i] = Ptr<BackendNode>(new InfEngineNgraphNode(ieInpNode->node->get_output_as_single_output_node(oid)));
 #else
                     inputNodes[i] = Ptr<BackendNode>(new InfEngineNgraphNode(ieInpNode->node->get_output_as_single_output_node(oid, false)));
@@ -2656,32 +2660,21 @@ struct Net::Impl : public detail::NetImplBase
                     Ptr<EltwiseLayer> nextEltwiseLayer;
                     if( nextData )
                         nextEltwiseLayer = nextData->layerInstance.dynamicCast<EltwiseLayer>();
-
 #ifdef HAVE_CUDA
                     // CUDA backend supports fusion with eltwise sum (without variable channels)
                     // `nextEltwiseLayer` is reset if eltwise layer doesn't have a compatible configuration for fusion
                     if (IS_DNN_CUDA_TARGET(preferableTarget) && !nextEltwiseLayer.empty())
                     {
                         // we create a temporary backend node for eltwise layer to obtain the eltwise configuration
-                        cuda4dnn::csl::CSLContext context; // assume that initCUDA and EltwiseOp does not use the context during init
+                        cuda4dnn::csl::CSLContext context; // assume that initCUDA and EltwiseOp do not use the context during init
                         const auto node = nextData->layerInstance->initCUDA(&context, nextData->inputBlobsWrappers, nextData->outputBlobsWrappers);
                         const auto eltwiseNode = node.dynamicCast<cuda4dnn::EltwiseOpBase>();
-                        if (eltwiseNode->op != cuda4dnn::EltwiseOpType::SUM || !eltwiseNode->coeffs.empty())
+                        // CUDA backend uses EltwiseOp when all operands have the same number of channels; otherwise, ShortcutOp is used.
+                        // Hence, a successful cast to EltwiseOp implies that the number of channels is same in all operand tensors.
+                        if (eltwiseNode.empty() || eltwiseNode->op != cuda4dnn::EltwiseOpType::SUM || !eltwiseNode->coeffs.empty())
                             nextEltwiseLayer = Ptr<EltwiseLayer>();
-
-                        // check for variable channels
-                        auto& inputs = nextData->inputBlobs;
-                        for (int i = 1; i < inputs.size(); ++i)
-                        {
-                            if (inputs[i]->size[1] != inputs[0]->size[1])
-                            {
-                                nextEltwiseLayer = Ptr<EltwiseLayer>();
-                                break;
-                            }
-                        }
                     }
 #endif
-
                     if (!nextEltwiseLayer.empty() && nextData && nextData->inputBlobsId.size() == 2)
                     {
                         LayerData *eltwiseData = nextData;
@@ -2725,7 +2718,8 @@ struct Net::Impl : public detail::NetImplBase
                                 {
                                     nextData = &layers[eltwiseData->consumers[0].lid];
                                     lpNext = LayerPin(eltwiseData->consumers[0].lid, 0);
-                                    if (pinsToKeep.count(lpNext) == 0 && nextData->outputBlobs.size() == 1)
+                                    CV_Assert(nextData);
+                                    if (nextData->outputBlobs.size() == 1)
                                         nextFusabeleActivLayer = nextData->layerInstance.dynamicCast<ActivationLayer>();
                                 }
                                 else
@@ -2739,6 +2733,7 @@ struct Net::Impl : public detail::NetImplBase
                                 bool fuse_eltwise = false, fuse_activation = false;
 
                                 if (IS_DNN_OPENCL_TARGET(preferableTarget) && !nextFusabeleActivLayer.empty() &&
+                                    nextData &&
                                     (!nextData->type.compare("ReLU") ||
                                      !nextData->type.compare("ChannelsPReLU") ||
                                      !nextData->type.compare("Power")) &&
@@ -2761,7 +2756,7 @@ struct Net::Impl : public detail::NetImplBase
                                     if (currLayer->tryFuse(layer))
                                     {
                                         fuse_eltwise = true; /* eltwise was successfully fused */
-                                        if (!nextFusabeleActivLayer.empty())
+                                        if (!nextFusabeleActivLayer.empty() && nextData)
                                         {
                                             if ((!nextData->type.compare("ReLU") ||
                                                  !nextData->type.compare("ReLU6") ||
@@ -2782,6 +2777,7 @@ struct Net::Impl : public detail::NetImplBase
                                 CV_Assert(!fuse_activation || fuse_eltwise); /* cannot fuse activation without eltwise */
                                 if(fuse_eltwise && fuse_activation)
                                 {
+                                    CV_Assert(nextData);
                                     CV_Assert_N(biasLayerData->outputBlobsWrappers.size() == 1, ld.inputBlobsWrappers.size() == 1);
                                     ld.inputBlobsWrappers.push_back(biasLayerData->outputBlobsWrappers[0]);
                                     printf_(("\tfused with %s\n", nextEltwiseLayer->name.c_str()));
@@ -3938,11 +3934,16 @@ void Net::connect(String _outPin, String _inPin)
 Mat Net::forward(const String& outputName)
 {
     CV_TRACE_FUNCTION();
+    CV_Assert(!empty());
 
     String layerName = outputName;
 
     if (layerName.empty())
-        layerName = getLayerNames().back();
+    {
+        std::vector<String> layerNames = getLayerNames();
+        CV_Assert(!layerNames.empty());
+        layerName = layerNames.back();
+    }
 
     std::vector<LayerPin> pins(1, impl->getPinByAlias(layerName));
     impl->setUpNet(pins);
@@ -3954,11 +3955,17 @@ Mat Net::forward(const String& outputName)
 AsyncArray Net::forwardAsync(const String& outputName)
 {
     CV_TRACE_FUNCTION();
+    CV_Assert(!empty());
+
 #ifdef CV_CXX11
     String layerName = outputName;
 
     if (layerName.empty())
-        layerName = getLayerNames().back();
+    {
+        std::vector<String> layerNames = getLayerNames();
+        CV_Assert(!layerNames.empty());
+        layerName = layerNames.back();
+    }
 
     std::vector<LayerPin> pins(1, impl->getPinByAlias(layerName));
     impl->setUpNet(pins);
@@ -3979,11 +3986,16 @@ AsyncArray Net::forwardAsync(const String& outputName)
 void Net::forward(OutputArrayOfArrays outputBlobs, const String& outputName)
 {
     CV_TRACE_FUNCTION();
+    CV_Assert(!empty());
 
     String layerName = outputName;
 
     if (layerName.empty())
-        layerName = getLayerNames().back();
+    {
+        std::vector<String> layerNames = getLayerNames();
+        CV_Assert(!layerNames.empty());
+        layerName = layerNames.back();
+    }
 
     std::vector<LayerPin> pins(1, impl->getPinByAlias(layerName));
     impl->setUpNet(pins);
@@ -4575,6 +4587,8 @@ std::vector<Ptr<Layer> > Net::getLayerInputs(LayerId layerId)
 
 std::vector<String> Net::getLayerNames() const
 {
+    CV_TRACE_FUNCTION();
+
     std::vector<String> res;
     res.reserve(impl->layers.size());
 

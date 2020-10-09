@@ -784,6 +784,13 @@ TEST_P(Test_Darknet_layers, connected)
     testDarknetLayer("connected", true);
 }
 
+TEST_P(Test_Darknet_layers, relu)
+{
+     if (backend == DNN_BACKEND_INFERENCE_ENGINE_NN_BUILDER_2019 && target == DNN_TARGET_MYRIAD)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_MYRIAD);
+    testDarknetLayer("relu");
+}
+
 INSTANTIATE_TEST_CASE_P(/**/, Test_Darknet_layers, dnnBackendsAndTargets());
 
 }} // namespace
