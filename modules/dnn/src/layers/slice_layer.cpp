@@ -41,12 +41,22 @@
 //M*/
 
 #include "../precomp.hpp"
+#include "../op_cuda.hpp"
 #include "../op_inf_engine.hpp"
+#include "../ie_ngraph.hpp"
+
 #include "layers_common.hpp"
 #include <opencv2/dnn/shape_utils.hpp>
 
+#include <opencv2/core/utils/logger.hpp>
+
 #ifdef HAVE_OPENCL
 #include "opencl_kernels_dnn.hpp"
+#endif
+
+#ifdef HAVE_CUDA
+#include "../cuda4dnn/primitives/slice.hpp"
+using namespace cv::dnn::cuda4dnn;
 #endif
 
 namespace cv
@@ -54,13 +64,14 @@ namespace cv
 namespace dnn
 {
 
-class SliceLayerImpl CV_FINAL : public SliceLayer
+class SliceLayerImpl : public SliceLayer
 {
 public:
     SliceLayerImpl(const LayerParams& params)
     {
         setParamsFrom(params);
         axis = params.get<int>("axis", 1);
+        num_split = params.get<int>("num_split", 0);
         if (params.has("slice_point"))
         {
             CV_Assert(!params.has("begin") && !params.has("size") && !params.has("end"));
@@ -110,8 +121,17 @@ public:
 
     virtual bool supportBackend(int backendId) CV_OVERRIDE
     {
+#ifdef HAVE_DNN_IE_NN_BUILDER_2019
+        if (backendId == DNN_BACKEND_INFERENCE_ENGINE_NN_BUILDER_2019)
+            return INF_ENGINE_VER_MAJOR_GE(INF_ENGINE_RELEASE_2019R1) &&
+                sliceRanges.size() == 1 && sliceRanges[0].size() == 4;
+#endif
+#ifdef HAVE_DNN_NGRAPH
+        if (backendId == DNN_BACKEND_INFERENCE_ENGINE_NGRAPH)
+            return sliceRanges.size() == 1;
+#endif
         return backendId == DNN_BACKEND_OPENCV ||
-               backendId == DNN_BACKEND_INFERENCE_ENGINE && sliceRanges.size() == 1;
+               backendId == DNN_BACKEND_CUDA;
     }
 
     bool getMemoryShapes(const std::vector<MatShape> &inputs,
@@ -137,30 +157,36 @@ public:
         else  // Divide input blob on equal parts by axis.
         {
             CV_Assert(0 <= axis && axis < inpShape.size());
-            CV_Assert(requiredOutputs > 0 && inpShape[axis] % requiredOutputs == 0);
-            inpShape[axis] /= requiredOutputs;
-            outputs.resize(requiredOutputs, inpShape);
+            int splits = num_split ? num_split : requiredOutputs;
+            CV_Assert(splits > 0 && inpShape[axis] % splits == 0);
+            inpShape[axis] /= splits;
+            outputs.resize(splits, inpShape);
         }
         return false;
     }
 
-    void finalize(const std::vector<Mat*> &inputs, std::vector<Mat> &outputs) CV_OVERRIDE
+    void finalize(InputArrayOfArrays inputs_arr, OutputArrayOfArrays outputs_arr) CV_OVERRIDE
     {
-        CV_Assert(inputs.size() == 1);
-        const MatSize& inpShape = inputs[0]->size;
+        std::vector<Mat> inputs, outputs;
+        inputs_arr.getMatVector(inputs);
+        outputs_arr.getMatVector(outputs);
 
+        CV_Assert(inputs.size() == 1);
+        const MatSize& inpShape = inputs[0].size;
+
+        finalSliceRanges = sliceRanges;
         if (sliceRanges.empty())
         {
             // Divide input blob on equal parts by axis.
             int outAxisSize = inpShape[axis] / outputs.size();
-            sliceRanges.resize(outputs.size(),
-                               std::vector<Range>(axis + 1, Range::all()));
+            finalSliceRanges.resize(outputs.size(),
+                                    std::vector<Range>(axis + 1, Range::all()));
             int prevSlice = 0;
             for (int i = 0; i < outputs.size(); ++i)
             {
-                sliceRanges[i][axis].start = prevSlice;
-                sliceRanges[i][axis].end = sliceRanges[i][axis].start + outAxisSize;
-                prevSlice = sliceRanges[i][axis].end;
+                finalSliceRanges[i][axis].start = prevSlice;
+                finalSliceRanges[i][axis].end = finalSliceRanges[i][axis].start + outAxisSize;
+                prevSlice = finalSliceRanges[i][axis].end;
             }
         }
         else
@@ -168,18 +194,30 @@ public:
 
         for (int i = 0; i < outputs.size(); ++i)
         {
-            CV_Assert(sliceRanges[i].size() <= inpShape.dims());
-            // Clamp.
-            for (int j = 0; j < sliceRanges[i].size(); ++j)
-            {
-                sliceRanges[i][j] = clamp(sliceRanges[i][j], inpShape[j]);
-            }
+            CV_Assert(finalSliceRanges[i].size() <= inpShape.dims());
             // Fill the rest of ranges.
-            for (int j = sliceRanges[i].size(); j < inpShape.dims(); ++j)
+            for (int j = finalSliceRanges[i].size(); j < inpShape.dims(); ++j)
             {
-                sliceRanges[i].push_back(Range::all());
+                finalSliceRanges[i].push_back(Range::all());
+            }
+            // Clamp.
+            for (int j = 0; j < finalSliceRanges[i].size(); ++j)
+            {
+                finalSliceRanges[i][j] = clamp(finalSliceRanges[i][j], inpShape[j]);
             }
         }
+
+#if 0
+        std::cout << "DEBUG: DNN/Slice: " << outputs.size() << " inpShape=" << inpShape << std::endl;
+        for (int i = 0; i < outputs.size(); ++i)
+        {
+            for (int j = 0; j < finalSliceRanges[i].size(); ++j)
+            {
+                std::cout << finalSliceRanges[i][j];
+            }
+            std::cout << std::endl;
+        }
+#endif
     }
 
 #ifdef HAVE_OPENCL
@@ -188,46 +226,149 @@ public:
         std::vector<UMat> inputs;
         std::vector<UMat> outputs;
 
-        bool use_half = (inputs_.depth() == CV_16S);
         inputs_.getUMatVector(inputs);
         outputs_.getUMatVector(outputs);
 
-        if (inputs[0].dims < 4 || (total(shape(outputs[0]), 0, 2) % 4 != 0) ||
-            (total(shape(outputs[0]), 2) % 4 != 0))
-            return false;
+        CV_Assert(outputs.size() == finalSliceRanges.size());
 
-        String opts;
-        if (use_half)
-            opts = "-DDtype=half -DDtype4=half4 -DDtype8=half8";
-        else
-            opts = "-DDtype=float -DDtype4=float4 -DDtype8=float8";
-        const UMat& inpMat = inputs[0];
-        for (size_t i = 0; i < outputs.size(); i++)
+        const UMat& input = inputs[0];
+        if (input.dims > 5)
         {
-            int groups = outputs[i].size[0];
-            int channels = outputs[i].size[1];
-            int rows = outputs[i].size[2];
-            int cols = outputs[i].size[3];
-
-            ocl::Kernel kernel("slice", ocl::dnn::slice_oclsrc, opts);
-            size_t local[] = { 128 };
-            size_t global[] = { (size_t)groups * channels / 4 * local[0] };
-            int idx = 0;
-            kernel.set(idx++, ocl::KernelArg::PtrReadOnly(inpMat));
-            kernel.set(idx++, (int)(inpMat.size[2] * inpMat.size[3]));
-            kernel.set(idx++, (int)(rows * cols));
-            kernel.set(idx++, (int)inpMat.size[3]);
-            kernel.set(idx++, (int)cols);
-            kernel.set(idx++, (int)sliceRanges[i][2].start);
-            kernel.set(idx++, (int)sliceRanges[i][3].start);
-            kernel.set(idx++, ocl::KernelArg::PtrWriteOnly(outputs[i]));
-            bool ret = kernel.run(1, global, local, false);
-            if (!ret)
-                return false;
+            CV_LOG_INFO(NULL, "DNN/OpenCL/Slice: implementation doesn't support dims=" << input.dims << ". Fallback to CPU");
+            return false;
         }
 
+        size_t WSZ = 128;
+
+        const int dims = input.dims;
+        const int elemSize = (int)input.elemSize();
+        String opts0 = cv::format(
+                "-DDIMS=%d -DELEMSIZE=%d",
+                dims, elemSize
+            );
+        for (int d = 0; d < dims; d++)
+        {
+            opts0 += cv::format(" -DSRC_STEP_%d=%d", d, (int)input.step[dims - 1 - d]);
+        }
+        String kname = cv::format("slice_%d", dims);
+        for (size_t i = 0; i < outputs.size(); i++)
+        {
+            UMat& output = outputs[i];
+            const std::vector<Range>& range = finalSliceRanges[i];
+
+            String opts = opts0;
+
+            CV_CheckEQ(output.dims, dims, "");
+            for (int d = 0; d < dims; d++)
+            {
+                opts += cv::format(" -DDST_STEP_%d=%d -DDST_SZ_%d=%d -DSRC_START_%d=%d",
+                        d, (int)output.step[dims - 1 - d],
+                        d, (int)output.size[dims - 1 - d],
+                        d, (int)range[dims - 1 - d].start
+                    );
+                CV_CheckEQ(range[d].size(), (int)output.size[d], "");
+            }
+
+            int block_dims = 0;
+            size_t block_size = elemSize;
+            for (int i = dims - 1; i >= 0; --i)
+            {
+                if (input.step[i] != output.step[i])
+                    break;
+                block_size *= output.size[i];
+                block_dims++;
+            }
+
+            const size_t total = output.total() * elemSize;
+            size_t num_blocks = total / block_size;
+
+            if ((num_blocks <= 8 && block_size >= WSZ * 4) || (block_size >= WSZ * 64))
+            {
+                // use 1D copy mode
+                opts += cv::format(" -DUSE_COPY_1D=1");
+
+                opts += cv::format(" -DBLOCK_DIMS=%d", block_dims);
+                opts += cv::format(" -DBLOCK_DIMS_CONTIGUOUS=%d", block_dims);
+                opts += cv::format(" -DBLOCK_SIZE=%d", (int)block_size);
+
+                opts += cv::format(" -DBLOCK_COLS=%d", (int)block_size);
+            }
+            else
+            {
+                // use 2D copy mode
+                int block_cols = block_size;
+                int block_dims_contiguous = block_dims;
+                size_t input_base_step = input.step[dims - 1 - block_dims_contiguous];
+                size_t output_base_step = output.step[dims - 1 - block_dims_contiguous];
+
+                size_t block_rows = 1;
+                for (int i = dims - 1 - block_dims_contiguous; i >= 0; --i)
+                {
+                    if (input.step[i] * output_base_step != output.step[i] * input_base_step)
+                        break;
+                    block_rows *= output.size[i];
+                    block_dims++;
+                }
+
+                block_size *= block_rows;
+
+                num_blocks = total / block_size;
+
+                if (block_rows > 1)
+                {
+                    opts += cv::format(" -DBLOCK_DIMS=%d", block_dims);
+                    opts += cv::format(" -DBLOCK_DIMS_CONTIGUOUS=%d", block_dims_contiguous);
+                    opts += cv::format(" -DBLOCK_SIZE=%d", (int)block_size);
+
+                    opts += cv::format(" -DBLOCK_COLS=%d", (int)block_cols);
+
+                    opts += cv::format(" -DBLOCK_ROWS=%d", (int)block_rows);
+                    opts += cv::format(" -DBLOCK_SRC_STRIDE=%d", (int)input_base_step);
+                }
+                else
+                {
+                    // use 1D copy mode
+                    opts += cv::format(" -DUSE_COPY_1D=1");
+
+                    opts += cv::format(" -DBLOCK_DIMS=%d", block_dims_contiguous);
+                    opts += cv::format(" -DBLOCK_DIMS_CONTIGUOUS=%d", block_dims_contiguous);
+                    opts += cv::format(" -DBLOCK_SIZE=%d", (int)block_size);
+
+                    opts += cv::format(" -DBLOCK_COLS=%d", (int)block_size);
+                }
+            }
+
+            const size_t MIN_WORK_ITEMS = 16;
+            if (block_size <= 4 * MIN_WORK_ITEMS)
+                WSZ = 4;
+            else if (block_size <= 8 * MIN_WORK_ITEMS)
+                WSZ = 8;
+            else if (block_size <= 16 * MIN_WORK_ITEMS)
+                WSZ = 16;
+            else if (block_size <= 32 * MIN_WORK_ITEMS)
+                WSZ = 32;
+            else if (block_size <= 64 * MIN_WORK_ITEMS)
+                WSZ = 64;
+
+            opts += cv::format(" -DWSZ=%d", (int)WSZ);
+
+            size_t local[] = { WSZ, 1 };
+            size_t global[] = { WSZ, num_blocks };
+
+            ocl::Kernel kernel(kname.c_str(), ocl::dnn::slice_oclsrc, opts);
+            if (kernel.empty())
+                return false;
+            bool ret = kernel.args(
+                    ocl::KernelArg::PtrReadOnly(input),
+                    ocl::KernelArg::PtrWriteOnly(output)
+                )
+                .run(2, global, local, false);
+            if (!ret)
+                return false;
+        }  // for outputs.size()
+
         return true;
-    }
+        }
 #endif
 
     void forward(InputArrayOfArrays inputs_arr, OutputArrayOfArrays outputs_arr, OutputArrayOfArrays internals_arr) CV_OVERRIDE
@@ -235,67 +376,226 @@ public:
         CV_TRACE_FUNCTION();
         CV_TRACE_ARG_VALUE(name, "name", name.c_str());
 
-        CV_OCL_RUN(IS_DNN_OPENCL_TARGET(preferableTarget) &&
-                   OCL_PERFORMANCE_CHECK(ocl::Device::getDefault().isIntel()),
+        CV_OCL_RUN(IS_DNN_OPENCL_TARGET(preferableTarget),
                    forward_ocl(inputs_arr, outputs_arr, internals_arr))
 
-        Layer::forward_fallback(inputs_arr, outputs_arr, internals_arr);
-    }
+        std::vector<Mat> inputs, outputs;
+        inputs_arr.getMatVector(inputs);
+        outputs_arr.getMatVector(outputs);
 
-    void forward(std::vector<Mat*> &inputs, std::vector<Mat> &outputs, std::vector<Mat> &internals) CV_OVERRIDE
-    {
-        CV_TRACE_FUNCTION();
-        CV_TRACE_ARG_VALUE(name, "name", name.c_str());
-
-        const Mat& inpMat = *inputs[0];
-        CV_Assert(outputs.size() == sliceRanges.size());
+        const Mat& inpMat = inputs[0];
+        CV_Assert(outputs.size() == finalSliceRanges.size());
         for (size_t i = 0; i < outputs.size(); i++)
         {
-            inpMat(sliceRanges[i]).copyTo(outputs[i]);
+            inpMat(finalSliceRanges[i]).copyTo(outputs[i]);
         }
     }
 
+
+#ifdef HAVE_DNN_IE_NN_BUILDER_2019
+#if INF_ENGINE_VER_MAJOR_GE(INF_ENGINE_RELEASE_2019R1)
     virtual Ptr<BackendNode> initInfEngine(const std::vector<Ptr<BackendWrapper> >& inputs) CV_OVERRIDE
     {
-#ifdef HAVE_INF_ENGINE
-        InferenceEngine::DataPtr input = infEngineDataNode(inputs[0]);
-        InferenceEngine::LayerParams lp;
-        lp.name = name;
-        lp.type = "Crop";
-        lp.precision = InferenceEngine::Precision::FP32;
-        std::shared_ptr<InferenceEngine::CropLayer> ieLayer(new InferenceEngine::CropLayer(lp));
+        CV_Assert_N(finalSliceRanges.size() == 1, inputs.size() <= 2);
 
-        CV_Assert(sliceRanges.size() == 1);
-
+        std::vector<size_t> axes, offsets, dims;
         int from, to, step;
+        int numDims = finalSliceRanges[0].size();
         if (preferableTarget == DNN_TARGET_MYRIAD)
         {
-            from = 1;
-            to = sliceRanges[0].size() + 1;
+            from = axis;
+            to = numDims;
             step = 1;
         }
         else
         {
-            from = sliceRanges[0].size() - 1;
-            to = -1;
+            from = numDims - 1;
+            to = axis - 1;
             step = -1;
         }
         for (int i = from; i != to; i += step)
         {
-            ieLayer->axis.push_back(i);
-            ieLayer->offset.push_back(sliceRanges[0][i].start);
-            ieLayer->dim.push_back(sliceRanges[0][i].end - sliceRanges[0][i].start);
+            axes.push_back(i);
+            offsets.push_back(finalSliceRanges[0][i].start);
+            dims.push_back(finalSliceRanges[0][i].size());
+        }
+
+        InferenceEngine::Builder::Layer ieLayer(name);
+        ieLayer.setName(name);
+        ieLayer.setType("Crop");
+        ieLayer.getParameters()["axis"] = axes;
+        ieLayer.getParameters()["dim"] = dims;
+        ieLayer.getParameters()["offset"] = offsets;
+        ieLayer.setInputPorts(std::vector<InferenceEngine::Port>(2));
+        ieLayer.setOutputPorts(std::vector<InferenceEngine::Port>(1));
+
+        if (inputs.size() != 2)
+        {
+            std::vector<size_t> outShape(numDims);
+            for (int i = 0; i < numDims; ++i)
+                outShape[i] = finalSliceRanges[0][i].size();
+
+            ieLayer.getInputPorts()[1].setParameter("type", "weights");
+
+            auto shapeSource = InferenceEngine::make_shared_blob<float>({
+                                   InferenceEngine::Precision::FP32, outShape,
+                                   InferenceEngine::Layout::ANY
+                               });
+            shapeSource->allocate();
+            addConstantData("weights", shapeSource, ieLayer);
         }
         return Ptr<BackendNode>(new InfEngineBackendNode(ieLayer));
-
-#endif  // HAVE_INF_ENGINE
-        return Ptr<BackendNode>();
     }
+#endif
+#endif
+
+
+#ifdef HAVE_DNN_NGRAPH
+    virtual Ptr<BackendNode> initNgraph(const std::vector<Ptr<BackendWrapper> >& inputs,
+                                        const std::vector<Ptr<BackendNode> >& nodes) CV_OVERRIDE
+    {
+        CV_Assert_N(nodes.size() <= 2);
+        auto& ieInpNode = nodes[0].dynamicCast<InfEngineNgraphNode>()->node;
+        CV_Assert(finalSliceRanges[0].size() == ieInpNode->get_shape().size());
+
+        std::vector<int64_t> offsets, dims;
+        for (int i = 0; i < finalSliceRanges[0].size(); ++i)
+        {
+            offsets.push_back(finalSliceRanges[0][i].start);
+            dims.push_back(finalSliceRanges[0][i].end);
+        }
+
+        auto lower_bounds = std::make_shared<ngraph::op::Constant>(ngraph::element::i64,
+                                             ngraph::Shape{offsets.size()}, offsets.data());
+        auto upper_bounds = std::make_shared<ngraph::op::Constant>(ngraph::element::i64,
+                                             ngraph::Shape{dims.size()}, dims.data());
+        auto strides = std::make_shared<ngraph::op::Constant>(ngraph::element::i64,
+                                        ngraph::Shape{dims.size()}, std::vector<int64_t>((int64_t)dims.size(), 1));
+
+        auto slice = std::make_shared<ngraph::op::v1::StridedSlice>(ieInpNode,
+                                      lower_bounds, upper_bounds, strides, std::vector<int64_t>{}, std::vector<int64_t>{});
+
+        return Ptr<BackendNode>(new InfEngineNgraphNode(slice));
+    }
+#endif  // HAVE_DNN_NGRAPH
+
+
+#ifdef HAVE_CUDA
+    Ptr<BackendNode> initCUDA(
+        void *context_,
+        const std::vector<Ptr<BackendWrapper>>& inputs,
+        const std::vector<Ptr<BackendWrapper>>& outputs
+    ) override
+    {
+        auto context = reinterpret_cast<csl::CSLContext*>(context_);
+
+        std::vector<std::vector<std::size_t>> offsets;
+        for (const auto& ranges : finalSliceRanges)
+        {
+            std::vector<std::size_t> offsets_i;
+            for (const auto& range : ranges)
+                offsets_i.push_back(range.start);
+            offsets.push_back(std::move(offsets_i));
+        }
+
+        return make_cuda_node<cuda4dnn::SliceOp>(preferableTarget, std::move(context->stream), std::move(offsets));
+    }
+#endif
+
+
+protected:
+    // The actual non-negative values determined from @p sliceRanges depends on input size.
+    std::vector<std::vector<Range> > finalSliceRanges;
+};
+
+class CropLayerImpl CV_FINAL : public SliceLayerImpl
+{
+public:
+    CropLayerImpl(const LayerParams& params) : SliceLayerImpl(LayerParams())
+    {
+        setParamsFrom(params);
+        axis = params.get<int>("axis", 2);
+        const DictValue *paramOffset = params.ptr("offset");
+
+        if (paramOffset)
+        {
+            for (int i = 0; i < paramOffset->size(); i++)
+                offset.push_back(paramOffset->get<int>(i));
+        }
+    }
+
+    bool getMemoryShapes(const std::vector<MatShape> &inputs,
+                         const int requiredOutputs,
+                         std::vector<MatShape> &outputs,
+                         std::vector<MatShape> &internals) const CV_OVERRIDE
+    {
+        CV_Assert(inputs.size() == 2);
+
+        MatShape dstShape = inputs[0];
+        int start = clamp(axis, dstShape);
+        for (int i = start; i < dstShape.size(); i++)
+        {
+            dstShape[i] = inputs[1][i];
+        }
+        outputs.resize(1, dstShape);
+        return false;
+    }
+
+    void finalize(InputArrayOfArrays inputs_arr, OutputArrayOfArrays) CV_OVERRIDE
+    {
+        std::vector<Mat> inputs;
+        inputs_arr.getMatVector(inputs);
+        CV_Assert(2 == inputs.size());
+
+        const Mat &inpBlob = inputs[0];
+        const Mat &inpSzBlob = inputs[1];
+
+        int dims = inpBlob.dims;
+        int start_axis = clamp(axis, dims);
+
+        std::vector<int> offset_final(dims, 0);
+        if (offset.size() == 1)
+        {
+            for (int i = start_axis; i < dims; i++)
+                offset_final[i] = offset[0];
+        }
+        else if (offset.size() > 1)
+        {
+            if ((int)offset.size() != dims - start_axis)
+                CV_Error(Error::StsBadArg, "number of offset values specified must be "
+                                           "equal to the number of dimensions following axis.");
+
+            for (int i = start_axis; i < dims; i++)
+                offset_final[i] = offset[i - start_axis];
+        }
+
+        finalSliceRanges.resize(1);
+        finalSliceRanges[0].resize(dims);
+        for (int i = 0; i < start_axis; i++)
+        {
+            finalSliceRanges[0][i] = Range(0, inpBlob.size[i]);
+        }
+        for (int i = start_axis; i < dims; i++)
+        {
+            if (offset_final[i] < 0 || offset_final[i] + inpSzBlob.size[i] > inpBlob.size[i])
+                CV_Error(Error::StsBadArg, "invalid crop parameters or blob sizes");
+
+            finalSliceRanges[0][i] = Range(offset_final[i], offset_final[i] + inpSzBlob.size[i]);
+        }
+    }
+
+private:
+    std::vector<int> offset;
 };
 
 Ptr<SliceLayer> SliceLayer::create(const LayerParams& params)
 {
     return Ptr<SliceLayer>(new SliceLayerImpl(params));
+}
+
+Ptr<Layer> CropLayer::create(const LayerParams& params)
+{
+    return Ptr<Layer>(new CropLayerImpl(params));
 }
 
 }

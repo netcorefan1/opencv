@@ -7,8 +7,17 @@
 #  if defined __GNUC__ && defined __APPLE__
 #    pragma GCC diagnostic ignored "-Wshadow"
 #  endif
+#  if defined(_MSC_VER)
+#    pragma warning(push)
+#    pragma warning(disable:4701)  // potentially uninitialized local variable
+#    pragma warning(disable:4702)  // unreachable code
+#    pragma warning(disable:4714)  // const marked as __forceinline not inlined
+#  endif
 #  include <Eigen/Core>
 #  include <Eigen/Eigenvalues>
+#  if defined(_MSC_VER)
+#    pragma warning(pop)
+#  endif
 #  include "opencv2/core/eigen.hpp"
 #endif
 
@@ -644,6 +653,7 @@ bool dls::is_empty(const cv::Mat * M)
 
 bool dls::positive_eigenvalues(const cv::Mat * eigenvalues)
 {
+    CV_Assert(eigenvalues && !eigenvalues->empty());
     cv::MatConstIterator_<double> it = eigenvalues->begin<double>();
     return *(it) > 0 && *(it+1) > 0 && *(it+2) > 0;
 }

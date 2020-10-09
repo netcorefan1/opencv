@@ -42,21 +42,15 @@
 #ifndef OPENCV_DNN_DNN_SHAPE_UTILS_HPP
 #define OPENCV_DNN_DNN_SHAPE_UTILS_HPP
 
-#include <opencv2/core.hpp>
-#include <opencv2/core/types_c.h>
+#include <opencv2/dnn/dnn.hpp>
+#include <opencv2/core/types_c.h>  // CV_MAX_DIM
 #include <iostream>
 #include <ostream>
 #include <sstream>
 
 namespace cv {
 namespace dnn {
-CV__DNN_EXPERIMENTAL_NS_BEGIN
-
-//Useful shortcut
-inline std::ostream &operator<< (std::ostream &s, cv::Range &r)
-{
-    return s << "[" << r.start << ", " << r.end << ")";
-}
+CV__DNN_INLINE_NS_BEGIN
 
 //Slicing
 
@@ -144,6 +138,16 @@ static inline MatShape shape(const UMat& mat)
     return shape(mat.size.p, mat.dims);
 }
 
+#if 0  // issues with MatExpr wrapped into InputArray
+static inline
+MatShape shape(InputArray input)
+{
+    int sz[CV_MAX_DIM];
+    int ndims = input.sizend(sz);
+    return shape(sz, ndims);
+}
+#endif
+
 namespace {inline bool is_neg(int i) { return i < 0; }}
 
 static inline MatShape shape(int a0, int a1=-1, int a2=-1, int a3=-1)
@@ -215,11 +219,11 @@ inline Range clamp(const Range& r, int axisSize)
 {
     Range clamped(std::max(r.start, 0),
                   r.end > 0 ? std::min(r.end, axisSize) : axisSize + r.end + 1);
-    CV_Assert(clamped.start < clamped.end, clamped.end <= axisSize);
+    CV_Assert_N(clamped.start < clamped.end, clamped.end <= axisSize);
     return clamped;
 }
 
-CV__DNN_EXPERIMENTAL_NS_END
+CV__DNN_INLINE_NS_END
 }
 }
 #endif

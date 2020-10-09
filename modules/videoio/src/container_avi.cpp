@@ -22,7 +22,7 @@ inline D safe_int_cast(S val, const char * msg = 0)
     if (!in_range_r || !in_range_l)
     {
         if (!msg)
-            CV_Error_(Error::StsOutOfRange, ("Can not convert integer values (%s -> %s), value 0x%llx is out of range", typeid(S).name(), typeid(D).name(), val));
+            CV_Error_(Error::StsOutOfRange, ("Can not convert integer values (%s -> %s), value 0x%jx is out of range", typeid(S).name(), typeid(D).name(), (uintmax_t)val));
         else
             CV_Error(Error::StsOutOfRange, msg);
     }
@@ -668,7 +668,7 @@ void BitStream::writeBlock()
 }
 
 size_t BitStream::getPos() const {
-    return safe_int_cast<size_t>(m_current - m_start, "Failed to determine AVI bufer position: value is out of range") + m_pos;
+    return safe_int_cast<size_t>(m_current - m_start, "Failed to determine AVI buffer position: value is out of range") + m_pos;
 }
 
 void BitStream::putByte(int val)
