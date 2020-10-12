@@ -79,6 +79,8 @@ void* getSymbol_(LibHandle_t h, const char* symbolName)
     return (void*)GetProcAddress(h, symbolName);
 #elif defined(__linux__) || defined(__APPLE__) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__HAIKU__) || defined(__GLIBC__)
     return dlsym(h, symbolName);
+#else 
+    return nullptr;
 #endif
 }
 
@@ -93,6 +95,8 @@ LibHandle_t libraryLoad_(const FileSystemPath_t& filename)
 #endif
 #elif defined(__linux__) || defined(__APPLE__) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__HAIKU__) || defined(__GLIBC__)
     return dlopen(filename.c_str(), RTLD_LAZY);
+#else 
+    return nullptr;
 #endif
 }
 
