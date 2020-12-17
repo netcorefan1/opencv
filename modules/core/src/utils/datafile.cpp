@@ -106,7 +106,7 @@ static bool isSubDirectory(const cv::String& base_path, const cv::String& path)
 static cv::String getModuleLocation(const void* addr)
 {
     CV_UNUSED(addr);
-#ifdef _WIN32
+#ifdef _WIN32 
     HMODULE m = 0;
 #if _WIN32_WINNT >= 0x0501 && (!defined(WINAPI_FAMILY) || (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP))
     ::GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -275,7 +275,11 @@ cv::String findDataFile(const cv::String& relative_path,
 
 
     // Steps: 4, 5, 6
+#if OPENCV_HAVE_FILESYSTEM_SUPPORT
     cv::String cwd = utils::fs::getcwd();
+#else
+    cv::String cwd;
+#endif
     cv::String build_dir(OPENCV_BUILD_DIR);
     bool has_tested_build_directory = false;
     if (isSubDirectory(build_dir, cwd) || isSubDirectory(utils::fs::canonical(build_dir), utils::fs::canonical(cwd)))
