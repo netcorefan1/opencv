@@ -31,8 +31,9 @@ endif()
 # ----------------------------------------------------------------------------------
 #         Define the library target:
 # ----------------------------------------------------------------------------------
-
-add_definitions(-DWEBP_USE_THREAD)
+IF(NOT ENABLE_WINRT_MODE)
+  add_definitions(-DWEBP_USE_THREAD)
+ENDIF()
 
 add_library(${WEBP_LIBRARY} STATIC ${OPENCV_3RDPARTY_EXCLUDE_FROM_ALL} ${lib_srcs} ${lib_hdrs})
 if(ANDROID)
@@ -53,6 +54,10 @@ set_target_properties(${WEBP_LIBRARY}
   COMPILE_PDB_NAME_DEBUG "${WEBP_LIBRARY}${OPENCV_DEBUG_POSTFIX}"
   ARCHIVE_OUTPUT_DIRECTORY ${3P_LIBRARY_OUTPUT_PATH}
   )
+
+IF(DEFINED EMGUCV_PLATFORM_TOOLSET)
+  set_target_properties(${WEBP_LIBRARY} PROPERTIES PLATFORM_TOOLSET ${EMGUCV_PLATFORM_TOOLSET})
+ENDIF()
 
 if(ENABLE_SOLUTION_FOLDERS)
   set_target_properties(${WEBP_LIBRARY} PROPERTIES FOLDER "3rdparty")
