@@ -114,6 +114,10 @@ if(POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW)  # CMake 3.9+: `RPATH` settings on macOS do not affect `install_name`.
 endif()
 
+if(POLICY CMP0069)
+  cmake_policy(SET CMP0069 NEW)  # IPO setting
+endif()
+
 if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)  # CMake 3.12+: Include file check macros honor `CMAKE_REQUIRED_LIBRARIES`
 endif()
