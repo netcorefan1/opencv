@@ -2603,6 +2603,8 @@ public:
     //! internal use method: updates the continuity flag
     void updateContinuityFlag();
 
+    MatAllocator* getStdAllocator(MatAllocator* matAllocator);
+
     //! black-box container of UMat data
     UMatData* u;
 
