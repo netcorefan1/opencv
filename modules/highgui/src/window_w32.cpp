@@ -52,8 +52,6 @@ using namespace cv;
 
 #include <windowsx.h> // required for GET_X_LPARAM() and GET_Y_LPARAM() macros
 
-#if defined _WIN32 && (! ( (defined WINAPI_FAMILY) && WINAPI_FAMILY==WINAPI_FAMILY_APP ) )
-
 #ifdef __GNUC__
 #  pragma GCC diagnostic ignored "-Wmissing-declarations"
 #endif
