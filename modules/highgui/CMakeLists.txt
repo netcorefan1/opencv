@@ -240,7 +240,7 @@ if(NOT BUILD_SHARED_LIBS
     AND NOT (CMAKE_VERSION VERSION_LESS "3.13.0")  # upgrade CMake: https://gitlab.kitware.com/cmake/cmake/-/merge_requests/2152
 )
   foreach(tgt in ${tgts})
-    if(tgt MATCHES "^ocv\.3rdparty\.")
+    if(tgt MATCHES "^ocv\\\\.3rdparty\\\\.")
       install(TARGETS ${tgt} EXPORT OpenCVModules)
     endif()
   endforeach()
