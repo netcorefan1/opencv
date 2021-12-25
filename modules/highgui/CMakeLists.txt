@@ -129,7 +129,7 @@ elseif(WINRT)
 
   # libraries below are neither available nor required
   # on ARM devices and/or Windows Phone
-  if(WINRT_PHONE OR (OpenCV_ARCH STREQUAL "ARM"))
+  if(HIGHGUI_LIBRARIES AND (WINRT_PHONE OR (OpenCV_ARCH STREQUAL "ARM")))
     list(REMOVE_ITEM HIGHGUI_LIBRARIES "comctl32" "gdi32" "ole32" "setupapi")
     if(WINRT_PHONE)
       message(STATUS "  ${name}: Windows Phone detected")
@@ -251,9 +251,11 @@ endif()
 # install used dependencies only
 if(NOT BUILD_SHARED_LIBS
     AND NOT (CMAKE_VERSION VERSION_LESS "3.13.0")  # upgrade CMake: https://gitlab.kitware.com/cmake/cmake/-/merge_requests/2152
-)
+) 
+  MESSAGE(STATUS "HIGHGUI targets: ${tgts}")
   foreach(tgt in ${tgts})
-    if(tgt MATCHES "^ocv\.3rdparty\.")
+    if(tgt MATCHES "^ocv\\.3rdparty\\.")
+	  MESSAGE(STATUS "HIGHGUI: Adding ${tgt} to OpenCVModules export")
       install(TARGETS ${tgt} EXPORT OpenCVModules)
     endif()
   endforeach()
