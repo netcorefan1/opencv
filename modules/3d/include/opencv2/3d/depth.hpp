@@ -30,7 +30,8 @@ public:
     {
       RGBD_NORMALS_METHOD_FALS = 0,
       RGBD_NORMALS_METHOD_LINEMOD = 1,
-      RGBD_NORMALS_METHOD_SRI = 2
+      RGBD_NORMALS_METHOD_SRI = 2,
+      RGBD_NORMALS_METHOD_CROSS_PRODUCT = 3
     };
 
     RgbdNormals() { }
@@ -42,9 +43,11 @@ public:
      * @param depth the depth of the normals (only CV_32F or CV_64F)
      * @param K the calibration matrix to use
      * @param window_size the window size to compute the normals: can only be 1,3,5 or 7
+     * @param diff_threshold threshold in depth difference, used in LINEMOD algirithm
      * @param method one of the methods to use: RGBD_NORMALS_METHOD_SRI, RGBD_NORMALS_METHOD_FALS
      */
     CV_WRAP static Ptr<RgbdNormals> create(int rows = 0, int cols = 0, int depth = 0, InputArray K = noArray(), int window_size = 5,
+                                           float diff_threshold = 50.f,
                                            RgbdNormals::RgbdNormalsMethod method = RgbdNormals::RgbdNormalsMethod::RGBD_NORMALS_METHOD_FALS);
 
     /** Given a set of 3d points in a depth image, compute the normals at each point.
@@ -68,7 +71,6 @@ public:
     CV_WRAP virtual void getK(OutputArray val) const = 0;
     CV_WRAP virtual void setK(InputArray val) = 0;
     CV_WRAP virtual RgbdNormals::RgbdNormalsMethod getMethod() const = 0;
-    CV_WRAP virtual void setMethod(RgbdNormals::RgbdNormalsMethod val) = 0;
 };
 
 
@@ -124,21 +126,20 @@ CV_EXPORTS_W void depthTo3d(InputArray depth, InputArray K, OutputArray points3d
  */
 CV_EXPORTS_W void rescaleDepth(InputArray in, int type, OutputArray out, double depth_factor = 1000.0);
 
-/** Warp the image: compute 3d points from the depth, transform them using given transformation,
- * then project color point cloud to an image plane.
- * This function can be used to visualize results of the Odometry algorithm.
- * @param image The image (of CV_8UC1 or CV_8UC3 type)
- * @param depth The depth (of type used in depthTo3d fuction)
- * @param mask The mask of used pixels (of CV_8UC1), it can be empty
- * @param Rt The transformation that will be applied to the 3d points computed from the depth
- * @param cameraMatrix Camera matrix
- * @param distCoeff Distortion coefficients
- * @param warpedImage The warped image.
- * @param warpedDepth The warped depth.
- * @param warpedMask The warped mask.
+/** Warps depth or RGB-D image by reprojecting it in 3d, applying Rt transformation
+ * and then projecting it back onto the image plane.
+ * This function can be used to visualize the results of the Odometry algorithm.
+ * @param depth Depth data, should be 1-channel CV_16U, CV_16S, CV_32F or CV_64F
+ * @param image RGB image (optional), should be 1-, 3- or 4-channel CV_8U
+ * @param mask Mask of used pixels (optional), should be CV_8UC1
+ * @param Rt Rotation+translation matrix (3x4 or 4x4) to be applied to depth points
+ * @param cameraMatrix Camera intrinsics matrix (3x3)
+ * @param warpedDepth The warped depth data (optional)
+ * @param warpedImage The warped RGB image (optional)
+ * @param warpedMask The mask of valid pixels in warped image (optional)
  */
-CV_EXPORTS_W void warpFrame(InputArray image, InputArray depth, InputArray mask, InputArray Rt, InputArray cameraMatrix, InputArray distCoeff,
-                            OutputArray warpedImage, OutputArray warpedDepth = noArray(), OutputArray warpedMask = noArray());
+CV_EXPORTS_W void warpFrame(InputArray depth, InputArray image, InputArray mask, InputArray Rt, InputArray cameraMatrix,
+                            OutputArray warpedDepth = noArray(), OutputArray warpedImage = noArray(), OutputArray warpedMask = noArray());
 
 enum RgbdPlaneMethod
 {
@@ -147,7 +148,7 @@ enum RgbdPlaneMethod
 
 /** Find the planes in a depth image
  * @param points3d the 3d points organized like the depth image: rows x cols with 3 channels
- * @param normals the normals for every point in the depth image
+ * @param normals the normals for every point in the depth image; optional, can be empty
  * @param mask An image where each pixel is labeled with the plane it belongs to
  *        and 255 if it does not belong to any plane
  * @param plane_coefficients the coefficients of the corresponding planes (a,b,c,d) such that ax+by+cz+d=0, norm(a,b,c)=1
