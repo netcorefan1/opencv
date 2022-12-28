@@ -53,18 +53,18 @@ if((HAVE_QT AND VTK_USE_QT)
   return()
 endif()
 
-try_compile(VTK_COMPILE_STATUS
-    "${OpenCV_BINARY_DIR}"
-    "${OpenCV_SOURCE_DIR}/cmake/checks/vtk_test.cpp"
-    CMAKE_FLAGS "-DINCLUDE_DIRECTORIES:STRING=${VTK_INCLUDE_DIRS}"
-    LINK_LIBRARIES ${VTK_LIBRARIES}
-    OUTPUT_VARIABLE OUTPUT
-)
+#try_compile(VTK_COMPILE_STATUS
+#    "${OpenCV_BINARY_DIR}"
+#    "${OpenCV_SOURCE_DIR}/cmake/checks/vtk_test.cpp"
+#    CMAKE_FLAGS "-DINCLUDE_DIRECTORIES:STRING=${VTK_INCLUDE_DIRS}"
+#    LINK_LIBRARIES ${VTK_LIBRARIES}
+#    OUTPUT_VARIABLE OUTPUT
+#)
 
-if(NOT ${VTK_COMPILE_STATUS})
-  message(STATUS "VTK support is disabled. Compilation of the sample code has failed.")
-  return()
-endif()
+#if(NOT ${VTK_COMPILE_STATUS})
+#  message(STATUS "VTK support is disabled. Compilation of the sample code has failed.")
+#  return()
+#endif()
 
 set(HAVE_VTK ON)
 if (VTK_VERSION VERSION_LESS "8.90.0")

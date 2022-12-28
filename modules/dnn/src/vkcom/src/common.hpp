@@ -12,13 +12,13 @@
 #include <string.h>
 #include <map>
 #include <mutex>
-#include <thread>
 #include <vector>
 #include <iostream>
 #include <sstream>
 #include <algorithm>
 #include <memory>
 #ifdef HAVE_VULKAN
+#include <thread>
 #include <vulkan/vulkan.h>
 #endif
 #include "opencv2/core/utils/logger.hpp"
