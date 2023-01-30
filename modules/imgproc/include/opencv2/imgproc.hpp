@@ -190,7 +190,6 @@ location of points on the plane, building special graphs (such as NNG,RNG), and 
     @defgroup imgproc_feature Feature Detection
     @defgroup imgproc_object Object Detection
     @defgroup imgproc_segmentation Image Segmentation
-    @defgroup imgproc_c C API
     @defgroup imgproc_hal Hardware Acceleration Layer
     @{
         @defgroup imgproc_hal_functions Functions
@@ -437,6 +436,8 @@ enum RetrievalModes {
 
 //! the contour approximation algorithm
 enum ContourApproximationModes {
+    /** TBD */
+    CHAIN_CODE            = 0,
     /** stores absolutely all the contour points. That is, any 2 subsequent points (x1,y1) and
     (x2,y2) of the contour will be either horizontal, vertical or diagonal neighbors, that is,
     max(abs(x1-x2),abs(y2-y1))==1. */
@@ -447,7 +448,9 @@ enum ContourApproximationModes {
     /** applies one of the flavors of the Teh-Chin chain approximation algorithm @cite TehChin89 */
     CHAIN_APPROX_TC89_L1   = 3,
     /** applies one of the flavors of the Teh-Chin chain approximation algorithm @cite TehChin89 */
-    CHAIN_APPROX_TC89_KCOS = 4
+    CHAIN_APPROX_TC89_KCOS = 4,
+    /** TBD */
+    LINK_RUNS              = 5
 };
 
 /** @brief Shape matching methods
@@ -722,7 +725,7 @@ enum ColorConversionCodes {
 
     COLOR_YUV2GRAY_UYVY = 123,
     COLOR_YUV2GRAY_YUY2 = 124,
-    //CV_YUV2GRAY_VYUY    = CV_YUV2GRAY_UYVY,
+    //COLOR_YUV2GRAY_VYUY    = COLOR_YUV2GRAY_UYVY,
     COLOR_YUV2GRAY_Y422 = COLOR_YUV2GRAY_UYVY,
     COLOR_YUV2GRAY_UYNV = COLOR_YUV2GRAY_UYVY,
     COLOR_YUV2GRAY_YVYU = COLOR_YUV2GRAY_YUY2,
@@ -1622,6 +1625,23 @@ CV_EXPORTS_W void blur( InputArray src, OutputArray dst,
                         Size ksize, Point anchor = Point(-1,-1),
                         int borderType = BORDER_DEFAULT );
 
+/** @brief Blurs an image using the stackBlur.
+
+The function applies and stackBlur to an image.
+stackBlur can generate similar results as Gaussian blur, and the time consumption does not increase with the increase of kernel size.
+It creates a kind of moving stack of colors whilst scanning through the image. Thereby it just has to add one new block of color to the right side
+of the stack and remove the leftmost color. The remaining colors on the topmost layer of the stack are either added on or reduced by one,
+depending on if they are on the right or on the left side of the stack. The only supported borderType is BORDER_REPLICATE.
+Original paper was proposed by Mario Klingemann, which can be found http://underdestruction.com/2004/02/25/stackblur-2004.
+
+@param src input image. The number of channels can be arbitrary, but the depth should be one of
+CV_8U, CV_16U, CV_16S or CV_32F.
+@param dst output image of the same size and type as src.
+@param ksize stack-blurring kernel size. The ksize.width and ksize.height can differ but they both must be
+positive and odd.
+*/
+CV_EXPORTS_W void stackBlur(InputArray src, OutputArray dst, Size ksize);
+
 /** @brief Convolves an image with the kernel.
 
 The function applies an arbitrary linear filter to an image. In-place operation is supported. When
@@ -2116,23 +2136,24 @@ transform.
 
 @param image 8-bit, single-channel binary source image. The image may be modified by the function.
 @param lines Output vector of lines. Each line is represented by a 2 or 3 element vector
-\f$(\rho, \theta)\f$ or \f$(\rho, \theta, \textrm{votes})\f$ . \f$\rho\f$ is the distance from the coordinate origin \f$(0,0)\f$ (top-left corner of
-the image). \f$\theta\f$ is the line rotation angle in radians (
-\f$0 \sim \textrm{vertical line}, \pi/2 \sim \textrm{horizontal line}\f$ ).
+\f$(\rho, \theta)\f$ or \f$(\rho, \theta, \textrm{votes})\f$, where \f$\rho\f$ is the distance from
+the coordinate origin \f$(0,0)\f$ (top-left corner of the image), \f$\theta\f$ is the line rotation
+angle in radians ( \f$0 \sim \textrm{vertical line}, \pi/2 \sim \textrm{horizontal line}\f$ ), and
 \f$\textrm{votes}\f$ is the value of accumulator.
 @param rho Distance resolution of the accumulator in pixels.
 @param theta Angle resolution of the accumulator in radians.
-@param threshold Accumulator threshold parameter. Only those lines are returned that get enough
+@param threshold %Accumulator threshold parameter. Only those lines are returned that get enough
 votes ( \f$>\texttt{threshold}\f$ ).
-@param srn For the multi-scale Hough transform, it is a divisor for the distance resolution rho .
+@param srn For the multi-scale Hough transform, it is a divisor for the distance resolution rho.
 The coarse accumulator distance resolution is rho and the accurate accumulator resolution is
-rho/srn . If both srn=0 and stn=0 , the classical Hough transform is used. Otherwise, both these
+rho/srn. If both srn=0 and stn=0, the classical Hough transform is used. Otherwise, both these
 parameters should be positive.
 @param stn For the multi-scale Hough transform, it is a divisor for the distance resolution theta.
 @param min_theta For standard and multi-scale Hough transform, minimum angle to check for lines.
 Must fall between 0 and max_theta.
-@param max_theta For standard and multi-scale Hough transform, maximum angle to check for lines.
-Must fall between min_theta and CV_PI.
+@param max_theta For standard and multi-scale Hough transform, an upper bound for the angle.
+Must fall between min_theta and CV_PI. The actual maximum angle in the accumulator may be slightly
+less than max_theta, depending on the parameters min_theta and theta.
  */
 CV_EXPORTS_W void HoughLines( InputArray image, OutputArray lines,
                               double rho, double theta, int threshold,
@@ -2160,7 +2181,7 @@ And this is the output of the above program in case of the probabilistic Hough t
 line segment.
 @param rho Distance resolution of the accumulator in pixels.
 @param theta Angle resolution of the accumulator in radians.
-@param threshold Accumulator threshold parameter. Only those lines are returned that get enough
+@param threshold %Accumulator threshold parameter. Only those lines are returned that get enough
 votes ( \f$>\texttt{threshold}\f$ ).
 @param minLineLength Minimum line length. Line segments shorter than that are rejected.
 @param maxLineGap Maximum allowed gap between points on the same line to link them.
@@ -2179,13 +2200,14 @@ The function finds lines in a set of points using a modification of the Hough tr
 @param lines Output vector of found lines. Each vector is encoded as a vector<Vec3d> \f$(votes, rho, theta)\f$.
 The larger the value of 'votes', the higher the reliability of the Hough line.
 @param lines_max Max count of Hough lines.
-@param threshold Accumulator threshold parameter. Only those lines are returned that get enough
+@param threshold %Accumulator threshold parameter. Only those lines are returned that get enough
 votes ( \f$>\texttt{threshold}\f$ ).
 @param min_rho Minimum value for \f$\rho\f$ for the accumulator (Note: \f$\rho\f$ can be negative. The absolute value \f$|\rho|\f$ is the distance of a line to the origin.).
 @param max_rho Maximum value for \f$\rho\f$ for the accumulator.
 @param rho_step Distance resolution of the accumulator.
 @param min_theta Minimum angle value of the accumulator in radians.
-@param max_theta Maximum angle value of the accumulator in radians.
+@param max_theta Upper bound for the angle value of the accumulator in radians. The actual maximum
+angle may be slightly less than max_theta, depending on the parameters min_theta and theta_step.
 @param theta_step Angle resolution of the accumulator in radians.
  */
 CV_EXPORTS_W void HoughLinesPointSet( InputArray point, OutputArray lines, int lines_max, int threshold,
